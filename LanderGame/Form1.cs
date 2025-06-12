@@ -12,7 +12,7 @@ namespace LanderGame
         private float gravity, thrustPower = 0.002f, rotationSpeed = 0.005f;
         private float terrainHeight = 20f;
         private bool gameOver = false;
-        private float padWidth = 40f;
+        private float padWidth = 60f; // widened landing pad for visibility
         private float padX;
         private bool landedSuccess = false;
         private float fuel = 100f;
@@ -24,6 +24,9 @@ namespace LanderGame
         private float scrollMargin = 500f;
         private List<(PointF start, PointF end, float vx, float vy)> debris = new List<(PointF, PointF, float, float)>();
         // blink logic removed
+        private System.Windows.Forms.Timer blinkTimer;
+        private int blinkIntervalMs = 500;
+        private bool showPadLights = true;
 
         public Form1()
         {
@@ -40,6 +43,11 @@ namespace LanderGame
             // Hook up rendering
             this.Load += Form1_Load;
             this.Paint += Form1_Paint;
+            // init blinking pad lights timer
+            blinkTimer = new System.Windows.Forms.Timer();
+            blinkTimer.Interval = blinkIntervalMs;
+            blinkTimer.Tick += BlinkTimer_Tick;
+            blinkTimer.Start();
         }
 
         // Set gravity based on chosen environment
@@ -173,9 +181,11 @@ namespace LanderGame
                 if (Math.Abs(vx) <= 0.5f && Math.Abs(vy) <= 0.5f
                     && modX >= padX && modX <= padX + padWidth)
                 {
-                    // Stop only on successful landing
+                    // Stop only on successful landing, keep pad lights on
                     gameTimer.Stop();
                     landedSuccess = true;
+                    showPadLights = true;
+                    blinkTimer.Stop();
                 }
                 else
                 {
@@ -233,9 +243,33 @@ namespace LanderGame
             gameOver = false;
             landedSuccess = false;
             fuel = 100f;
+            // Reset camera and debris
+            cameraX = 0f;
+            debris.Clear();
+            // Reset pad lights and blinking timer
+            showPadLights = true;
+            blinkTimer.Start();
             // Randomize new landing pad
             var rng = new Random();
             padX = rng.Next(0, ClientSize.Width - (int)padWidth);
+            // Generate and flatten terrain under new pad
+            terrainPoints = new PointF[terrainSegments + 1];
+            float segW = ClientSize.Width / (float)terrainSegments;
+            float baseY = ClientSize.Height - terrainHeight;
+            for (int i = 0; i <= terrainSegments; i++)
+            {
+                float tx = i * segW;
+                float ty = baseY + (float)(rng.NextDouble() * 2 - 1) * terrainVariation;
+                ty = Math.Clamp(ty, 1, ClientSize.Height);
+                terrainPoints[i] = new PointF(tx, ty);
+            }
+            // Flatten the terrain under this pad to make it horizontal
+            int startIdx = Math.Clamp((int)(padX / segW), 0, terrainSegments);
+            int endIdx = Math.Clamp((int)((padX + padWidth) / segW), 0, terrainSegments);
+            float padY = (terrainPoints[startIdx].Y + terrainPoints[endIdx].Y) / 2;
+            padY = Math.Clamp(padY, 1, ClientSize.Height);
+            for (int i = startIdx; i <= endIdx; i++)
+                terrainPoints[i].Y = padY;
             // Place landing pad within 3 screens of start
             int screenW = ClientSize.Width;
             int lower = Math.Max(0, (int)x - 3 * screenW);
@@ -245,6 +279,22 @@ namespace LanderGame
             // Stop timer and wait for first control
             gameTimer.Stop();
             // blink logic removed
+        }
+        
+        // toggle blinking pad lights
+        private void BlinkTimer_Tick(object? sender, EventArgs e)
+        {
+            if (landedSuccess)
+            {
+                // Stop blinking after successful landing
+                showPadLights = true;
+                blinkTimer.Stop();
+            }
+            else
+            {
+                showPadLights = !showPadLights;
+            }
+            Invalidate();
         }
 
         private void Form1_Paint(object? sender, PaintEventArgs e)
@@ -270,20 +320,21 @@ namespace LanderGame
                 g.TranslateTransform(-wrapWidth * 3, 0);
             }
 
-            // Draw landing pad, tiled similarly
-            using (var padPen = new Pen(Color.Green, 3))
+            // Draw landing pad once in world coordinates so it never disappears
+            float padY = GetTerrainYAt(padX);
+            using (var padPen = new Pen(Color.Green, 5))
             {
-                int baseTile = (int)Math.Floor(cameraX / wrapWidth);
-                for (int t = baseTile - 1; t <= baseTile + 1; t++)
-                {
-                    float offset = t * wrapWidth;
-                    float padY = GetTerrainYAt(padX);
-                    g.DrawLine(padPen,
-                        padX + offset, padY,
-                        padX + padWidth + offset, GetTerrainYAt(padX + padWidth));
-                    g.TranslateTransform(wrapWidth, 0);
-                }
-                g.TranslateTransform(-wrapWidth * 3, 0);
+                g.DrawLine(padPen,
+                    padX, padY,
+                    padX + padWidth, padY);
+            }
+            // Draw blinking lights at pad ends
+            if (showPadLights)
+            {
+                using var lightBrush = new SolidBrush(Color.Yellow);
+                float r = 5f;
+                g.FillEllipse(lightBrush, padX - r, padY - 2*r, 2*r, 2*r);
+                g.FillEllipse(lightBrush, padX + padWidth - r, padY - 2*r, 2*r, 2*r);
             }
 
             // Draw debris explosion on crash
