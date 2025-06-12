@@ -1,0 +1,29 @@
+using Xunit;
+using LanderGame;
+
+namespace Tests
+{
+    public class LandingPadTests
+    {
+        [Fact]
+        public void LandingPad_Initializes_Correctly()
+        {
+            var pad = new LandingPad(10, 50, 400, 500);
+            Assert.Equal(10, pad.X);
+            Assert.Equal(50, pad.Width);
+            Assert.Equal(400, pad.Y);
+            Assert.True(pad.LightsVisible);
+        }
+
+        [Fact]
+        public void LandingPad_ToggleLights_Changes_Visibility()
+        {
+            var pad = new LandingPad(0, 10, 10, 100);
+            bool initial = pad.LightsVisible;
+            // Simulate timer tick
+            pad.GetType().GetMethod("ToggleLights", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .Invoke(pad, null);
+            Assert.NotEqual(initial, pad.LightsVisible);
+        }
+    }
+}
