@@ -7,14 +7,14 @@ namespace LanderGame
     public partial class Form1 : Form
     {
         // Object‐oriented game state
-        private Lander lander;   // initialized in Form1_Load
+        private Lander lander = null!;   // initialized in Form1_Load
         private LandingPad pad = null!;       // set in Form1_Load
         private bool thrusting, rotatingLeft, rotatingRight;
         private bool gameOver;
         private bool landedSuccess;
         private float gravity;
         private const float terrainHeight = 20f;
-        private Terrain terrain; // initialized in Form1_Load
+        private Terrain terrain = null!; // initialized in Form1_Load
         private int terrainSegments = 40;
         private float terrainVariation = 500f;
         private float cameraX;

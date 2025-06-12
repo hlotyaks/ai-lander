@@ -32,4 +32,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: code-coverage-report
-          path: Tests/**/coverage.cobertura.xml
+          path: '**/TestResults/*/coverage.cobertura.xml'
