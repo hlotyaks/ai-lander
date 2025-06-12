@@ -7,14 +7,14 @@ namespace LanderGame
     public partial class Form1 : Form
     {
         // Object‐oriented game state
-        private Lander lander;
+        private Lander lander;   // initialized in Form1_Load
         private LandingPad pad = null!;       // set in Form1_Load
         private bool thrusting, rotatingLeft, rotatingRight;
         private bool gameOver;
         private bool landedSuccess;
         private float gravity;
         private const float terrainHeight = 20f;
-        private PointF[] terrainPoints = Array.Empty<PointF>();
+        private Terrain terrain; // initialized in Form1_Load
         private int terrainSegments = 40;
         private float terrainVariation = 500f;
         private float cameraX;
@@ -28,8 +28,6 @@ namespace LanderGame
             // Start in full screen
             this.FormBorderStyle = FormBorderStyle.None;
             this.WindowState = FormWindowState.Maximized;
-            // initialize lander (pad set later in Load)
-            lander = new Lander(ClientSize.Width/2, 50);
             // Set initial gravity based on UI selection
             SetGravityFromSelection();
             // Hook up rendering
@@ -85,26 +83,21 @@ namespace LanderGame
 
         private void Form1_Load(object? sender, EventArgs e)
         {
-            // Generate jagged terrain and instantiate landing pad
+            // initialize lander and terrain now that ClientSize is set
+            lander = new Lander(ClientSize.Width/2, 50);
+            terrain = new Terrain(terrainSegments, terrainVariation, ClientSize.Height - terrainHeight);
+             // Generate jagged terrain and instantiate landing pad
             var rng = new Random();
-            float segW = ClientSize.Width / (float)terrainSegments;
             // Build terrain
-            terrainPoints = new PointF[terrainSegments + 1];
-            float baseY = ClientSize.Height - terrainHeight;
-            for (int i = 0; i <= terrainSegments; i++)
-            {
-                float tx = i * segW;
-                float ty = baseY + (float)(rng.NextDouble() * 2 - 1) * terrainVariation;
-                ty = Math.Clamp(ty, ClientSize.Height / 2f, baseY);
-                terrainPoints[i] = new PointF(tx, ty);
-            }
-            // Choose pad segment count and location
-            int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
-            int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
-            int endIdx = startIdx + padSegs;
+            float segW = ClientSize.Width / (float)terrainSegments;
+            terrain.Generate(rng, ClientSize.Width, ClientSize.Height);
+             // Choose pad segment count and location
+             int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
+             int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
             // Flatten terrain under pad
-            float padY = (terrainPoints[startIdx].Y + terrainPoints[endIdx].Y) / 2;
-            for (int i = startIdx; i <= endIdx; i++) terrainPoints[i].Y = padY;
+            terrain.Flatten(startIdx, padSegs);
+            int endIdx = startIdx + padSegs;
+            float padY = (terrain.Points[startIdx].Y + terrain.Points[endIdx].Y) / 2;
             // Instantiate landing pad
             float padXCoord = startIdx * segW;
             float padW = padSegs * segW;
@@ -113,17 +106,9 @@ namespace LanderGame
             gameTimer.Stop();
         }
 
-        // Helper to get terrain Y at given X via interpolation
         private float GetTerrainYAt(float xPos)
         {
-            if (terrainPoints == null) return ClientSize.Height - terrainHeight;
-            float segmentWidth = ClientSize.Width / (float)terrainSegments;
-            int idx = (int)(xPos / segmentWidth);
-            idx = Math.Clamp(idx, 0, terrainSegments - 1);
-            PointF p0 = terrainPoints[idx];
-            PointF p1 = terrainPoints[idx + 1];
-            float t = (xPos - p0.X) / (p1.X - p0.X);
-            return p0.Y + t * (p1.Y - p0.Y);
+            return terrain.GetHeightAt(xPos, ClientSize.Width);
         }
 
         private void gameTimer_Tick(object sender, EventArgs e)
@@ -137,10 +122,11 @@ namespace LanderGame
             float terrainY = GetTerrainYAt(modX);
             if (!gameOver && !landedSuccess && y + 20 >= terrainY)
             {
-                if (Math.Abs(vx) <= 0.5f && Math.Abs(vy) <= 0.5f && modX >= pad.X && modX <= pad.X+pad.Width)
-                {
-                    gameTimer.Stop(); landedSuccess = true; pad.StopBlinking();
-                }
+                // Check pad exists before landing
+                if (pad != null && Math.Abs(vx) <= 0.5f && Math.Abs(vy) <= 0.5f && modX >= pad.X && modX <= pad.X + pad.Width)
+                 {
+                     gameTimer.Stop(); landedSuccess = true; pad.StopBlinking();
+                 }
                 else
                 {
                     gameOver = true;
@@ -184,11 +170,10 @@ namespace LanderGame
             var rng=new Random(); float segW=ClientSize.Width/terrainSegments;
             int padSegs=Math.Clamp(1,(int)Math.Round(60/segW),terrainSegments);
             int start=rng.Next(0,terrainSegments-padSegs+1);
-            terrainPoints=new PointF[terrainSegments+1];
-            for(int i=0;i<=terrainSegments;i++) terrainPoints[i]=new( i*segW,
-                Math.Clamp(ClientSize.Height-20+(float)(rng.NextDouble()*2-1)*terrainVariation,ClientSize.Height/2,ClientSize.Height-20));
-            int endIdx2=start+padSegs; float padY2=(terrainPoints[start].Y+terrainPoints[endIdx2].Y)/2;
-            for(int i=start;i<=endIdx2;i++)terrainPoints[i].Y=padY2;
+            terrain.Generate(rng, ClientSize.Width, ClientSize.Height);
+            terrain.Flatten(start, padSegs);
+            int endIdx2=start+padSegs; float padY2=(terrain.Points[start].Y+terrain.Points[endIdx2].Y)/2;
+            for(int i=start;i<=endIdx2;i++)terrain.Points[i].Y=padY2;
             pad=new LandingPad(start*segW,padSegs*segW,padY2,blinkIntervalMs);
             SetGravityFromSelection();
             gameTimer.Stop();
@@ -206,21 +191,11 @@ namespace LanderGame
             float wrapWidth = ClientSize.Width; // width used for terrain and pad tiling
 
             // Draw terrain
-            // Draw terrain lines vector-style
-            if (terrainPoints != null)
-            {
-                using var terrainPen = new Pen(Color.Gray, 2);
-                int baseTile = (int)Math.Floor(cameraX / wrapWidth);
-                for (int t = baseTile - 1; t <= baseTile + 1; t++)
-                {
-                    g.DrawLines(terrainPen, terrainPoints);
-                    g.TranslateTransform(wrapWidth, 0);
-                }
-                g.TranslateTransform(-wrapWidth * 3, 0);
-            }
+            terrain.Draw(g, cameraX, wrapWidth);
 
-            // Draw landing pad
-            pad.Draw(g);
+            // Draw landing pad if initialized
+            if (pad != null)
+                pad.Draw(g);
 
             // Draw debris explosion on crash
             if (gameOver && debris.Count > 0)
