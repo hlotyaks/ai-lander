@@ -19,7 +19,7 @@ namespace LanderGame
         private float fuelConsumptionRate = 0.02f;
         private PointF[] terrainPoints = Array.Empty<PointF>();
         private int terrainSegments = 40;
-        private float terrainVariation = 50f;
+        private float terrainVariation = 500f;
         private float cameraX = 0f;
         private float scrollMargin = 500f;
         private List<(PointF start, PointF end, float vx, float vy)> debris = new List<(PointF, PointF, float, float)>();
@@ -98,27 +98,35 @@ namespace LanderGame
 
         private void Form1_Load(object? sender, EventArgs e)
         {
-            // Random landing pad location within screen width
+            // Align pad to terrain segments so it sits on horizontal terrain vertices
             var rng = new Random();
-            padX = rng.Next(0, ClientSize.Width - (int)padWidth);
+            float segmentWidth = ClientSize.Width / (float)terrainSegments;
+            int padSegCount = Math.Max(1, (int)Math.Round(padWidth / segmentWidth));
+            padSegCount = Math.Min(padSegCount, terrainSegments);
+            int startIdx = rng.Next(0, terrainSegments - padSegCount + 1);
+            padX = startIdx * segmentWidth;
+            padWidth = padSegCount * segmentWidth;
+
             // Place landing pad within 3 screens of start
             int screenW = ClientSize.Width;
             int lower = Math.Max(0, (int)x - 3 * screenW);
             int upper = (int)x + 3 * screenW - (int)padWidth;
             // Generate jagged terrain
             terrainPoints = new PointF[terrainSegments + 1];
-            float segmentWidth = ClientSize.Width / (float)terrainSegments;
+            float segmentWidth2 = ClientSize.Width / (float)terrainSegments;
             float baseY = ClientSize.Height - terrainHeight;
             for (int i = 0; i <= terrainSegments; i++)
             {
-                float tx = i * segmentWidth;
+                float tx = i * segmentWidth2;
                 float ty = baseY + (float)(rng.NextDouble() * 2 - 1) * terrainVariation;
-                ty = Math.Clamp(ty, 1, ClientSize.Height); // clamp to screen, min above 0
+                // ensure terrain does not rise above half the screen and stays above bottom terrainHeight
+                float minY = ClientSize.Height / 2f;
+                float maxY = ClientSize.Height - terrainHeight;
+                ty = Math.Clamp(ty, minY, maxY);
                 terrainPoints[i] = new PointF(tx, ty);
             }
             // Flatten terrain under the pad to make landing pad horizontal
-            int startIdx = Math.Clamp((int)(padX / segmentWidth), 0, terrainSegments);
-            int endIdx = Math.Clamp((int)((padX + padWidth) / segmentWidth), 0, terrainSegments);
+            int endIdx = startIdx + padSegCount;
             float padY = (terrainPoints[startIdx].Y + terrainPoints[endIdx].Y) / 2;
             padY = Math.Clamp(padY, 1, ClientSize.Height); // clamp pad Y to be above 0
             for (int i = startIdx; i <= endIdx; i++)
@@ -249,23 +257,31 @@ namespace LanderGame
             // Reset pad lights and blinking timer
             showPadLights = true;
             blinkTimer.Start();
-            // Randomize new landing pad
+            // Align new pad to terrain segments
             var rng = new Random();
-            padX = rng.Next(0, ClientSize.Width - (int)padWidth);
+            float segW = ClientSize.Width / (float)terrainSegments;
+            int padSegs = Math.Max(1, (int)Math.Round(padWidth / segW));
+            padSegs = Math.Min(padSegs, terrainSegments);
+            int idx0 = rng.Next(0, terrainSegments - padSegs + 1);
+            padX = idx0 * segW;
+            padWidth = padSegs * segW;
             // Generate and flatten terrain under new pad
             terrainPoints = new PointF[terrainSegments + 1];
-            float segW = ClientSize.Width / (float)terrainSegments;
+            float segmentWidth = ClientSize.Width / (float)terrainSegments;
             float baseY = ClientSize.Height - terrainHeight;
             for (int i = 0; i <= terrainSegments; i++)
             {
-                float tx = i * segW;
+                float tx = i * segmentWidth;
                 float ty = baseY + (float)(rng.NextDouble() * 2 - 1) * terrainVariation;
-                ty = Math.Clamp(ty, 1, ClientSize.Height);
+                // ensure terrain does not rise above half the screen and stays above bottom terrainHeight
+                float minY = ClientSize.Height / 2f;
+                float maxY = ClientSize.Height - terrainHeight;
+                ty = Math.Clamp(ty, minY, maxY);
                 terrainPoints[i] = new PointF(tx, ty);
             }
             // Flatten the terrain under this pad to make it horizontal
-            int startIdx = Math.Clamp((int)(padX / segW), 0, terrainSegments);
-            int endIdx = Math.Clamp((int)((padX + padWidth) / segW), 0, terrainSegments);
+            int startIdx = idx0;
+            int endIdx = startIdx + padSegs;
             float padY = (terrainPoints[startIdx].Y + terrainPoints[endIdx].Y) / 2;
             padY = Math.Clamp(padY, 1, ClientSize.Height);
             for (int i = startIdx; i <= endIdx; i++)
