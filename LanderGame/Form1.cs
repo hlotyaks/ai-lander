@@ -190,7 +190,10 @@ namespace LanderGame
             int endIdx2=start+padSegs; float padY2=(terrainPoints[start].Y+terrainPoints[endIdx2].Y)/2;
             for(int i=start;i<=endIdx2;i++)terrainPoints[i].Y=padY2;
             pad=new LandingPad(start*segW,padSegs*segW,padY2,blinkIntervalMs);
-            SetGravityFromSelection(); gameTimer.Stop();
+            SetGravityFromSelection();
+            gameTimer.Stop();
+            // Force redraw so screen resets immediately
+            Invalidate();
         }
         
         private void Form1_Paint(object? sender, PaintEventArgs e)
