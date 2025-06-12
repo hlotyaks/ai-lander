@@ -17,6 +17,13 @@ namespace LanderGame
         private bool landedSuccess = false;
         private float fuel = 100f;
         private float fuelConsumptionRate = 0.02f;
+        private PointF[] terrainPoints = Array.Empty<PointF>();
+        private int terrainSegments = 40;
+        private float terrainVariation = 50f;
+        private float cameraX = 0f;
+        private float scrollMargin = 500f;
+        private List<(PointF start, PointF end, float vx, float vy)> debris = new List<(PointF, PointF, float, float)>();
+        // blink logic removed
 
         public Form1()
         {
@@ -31,8 +38,8 @@ namespace LanderGame
             // Set initial gravity based on UI selection
             SetGravityFromSelection();
             // Hook up rendering
-            this.Paint += Form1_Paint;
             this.Load += Form1_Load;
+            this.Paint += Form1_Paint;
         }
 
         // Set gravity based on chosen environment
@@ -86,6 +93,41 @@ namespace LanderGame
             // Random landing pad location within screen width
             var rng = new Random();
             padX = rng.Next(0, ClientSize.Width - (int)padWidth);
+            // Place landing pad within 3 screens of start
+            int screenW = ClientSize.Width;
+            int lower = Math.Max(0, (int)x - 3 * screenW);
+            int upper = (int)x + 3 * screenW - (int)padWidth;
+            // Generate jagged terrain
+            terrainPoints = new PointF[terrainSegments + 1];
+            float segmentWidth = ClientSize.Width / (float)terrainSegments;
+            float baseY = ClientSize.Height - terrainHeight;
+            for (int i = 0; i <= terrainSegments; i++)
+            {
+                float tx = i * segmentWidth;
+                float ty = baseY + (float)(rng.NextDouble() * 2 - 1) * terrainVariation;
+                ty = Math.Clamp(ty, 1, ClientSize.Height); // clamp to screen, min above 0
+                terrainPoints[i] = new PointF(tx, ty);
+            }
+            // Flatten terrain under the pad to make landing pad horizontal
+            int startIdx = Math.Clamp((int)(padX / segmentWidth), 0, terrainSegments);
+            int endIdx = Math.Clamp((int)((padX + padWidth) / segmentWidth), 0, terrainSegments);
+            float padY = (terrainPoints[startIdx].Y + terrainPoints[endIdx].Y) / 2;
+            padY = Math.Clamp(padY, 1, ClientSize.Height); // clamp pad Y to be above 0
+            for (int i = startIdx; i <= endIdx; i++)
+                terrainPoints[i].Y = padY;
+        }
+
+        // Helper to get terrain Y at given X via interpolation
+        private float GetTerrainYAt(float xPos)
+        {
+            if (terrainPoints == null) return ClientSize.Height - terrainHeight;
+            float segmentWidth = ClientSize.Width / (float)terrainSegments;
+            int idx = (int)(xPos / segmentWidth);
+            idx = Math.Clamp(idx, 0, terrainSegments - 1);
+            PointF p0 = terrainPoints[idx];
+            PointF p1 = terrainPoints[idx + 1];
+            float t = (xPos - p0.X) / (p1.X - p0.X);
+            return p0.Y + t * (p1.Y - p0.Y);
         }
 
         private void gameTimer_Tick(object sender, EventArgs e)
@@ -114,127 +156,71 @@ namespace LanderGame
             // Position update
             x += vx * delta;
             y += vy * delta;
-            // Clamp to window bounds
-            x = Math.Clamp(x, 0, ClientSize.Width);
+            x = Math.Max(0, x);
             y = Math.Clamp(y, 0, ClientSize.Height);
-            // Terrain collision detection
-            float terrainY = ClientSize.Height - terrainHeight;
+
+            // Wrap x for terrain collision
+            float wrapWidth = ClientSize.Width;
+            float modX = x % wrapWidth;
+            if (modX < 0) modX += wrapWidth;
+
+            float terrainY = GetTerrainYAt(modX);
             if (!gameOver && !landedSuccess && y + 20 >= terrainY)
             {
                 // Position the lander on the ground
                 y = terrainY - 20;
-                gameTimer.Stop();
                 // Check for successful landing on pad
                 if (Math.Abs(vx) <= 0.5f && Math.Abs(vy) <= 0.5f
-                    && x >= padX && x <= padX + padWidth)
+                    && modX >= padX && modX <= padX + padWidth)
                 {
+                    // Stop only on successful landing
+                    gameTimer.Stop();
                     landedSuccess = true;
                 }
                 else
                 {
+                    // Crash: trigger game over and spawn debris immediately
                     gameOver = true;
+                    // Create debris explosion
+                    var rng2 = new Random();
+                    int pieces = 30;
+                    for (int j = 0; j < pieces; j++)
+                    {
+                        float a2 = (float)(rng2.NextDouble() * Math.PI * 2);
+                        float length = rng2.Next(5, 15);
+                        var start = new PointF(x, y);
+                        var end = new PointF(x + (float)Math.Cos(a2) * length, y + (float)Math.Sin(a2) * length);
+                        float dvx = (end.X - start.X) * 0.1f;
+                        float dvy = (end.Y - start.Y) * 0.1f;
+                        debris.Add((start, end, dvx, dvy));
+                    }
                 }
             }
+            // Update camera to follow ship when near edges
+            if (x - cameraX < scrollMargin)
+                cameraX = Math.Max(0, x - scrollMargin);
+            else if (x - cameraX > ClientSize.Width - scrollMargin)
+                cameraX = x - (ClientSize.Width - scrollMargin);
             // Trigger redraw
             Invalidate();
-        }
 
-        // Adjusted sender nullability to match PaintEventHandler
-        private void Form1_Paint(object? sender, PaintEventArgs e)
-        {
-            var g = e.Graphics;
-            g.Clear(Color.Black);
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            // Transform to lander position and rotation
-            g.TranslateTransform(x, y);
-            g.RotateTransform(angle * 180f / (float)Math.PI);
-            // Draw lander triangular shape
-            PointF[] tri = { new PointF(0, -20), new PointF(-10, 20), new PointF(10, 20) };
-            g.FillPolygon(Brushes.White, tri);
-            // Draw thrust flame
-            if (thrusting)
+            // Update debris pieces
+            if (debris.Count > 0)
             {
-                var rand = new Random();
-                PointF[] flame = { new PointF(-5, 20), new PointF(0, 20 + rand.Next(5, 15)), new PointF(5, 20) };
-                g.FillPolygon(Brushes.Orange, flame);
+                for (int i = debris.Count - 1; i >= 0; i--)
+                {
+                    var (start, end, vx0, vy0) = debris[i];
+                    // update positions
+                    start.X += vx0 * delta;
+                    start.Y += vy0 * delta;
+                    end.X += vx0 * delta;
+                    end.Y += vy0 * delta;
+                    // apply gravity to vy
+                    vy0 += gravity * delta;
+                    debris[i] = (start, end, vx0, vy0);
+                }
             }
-            g.ResetTransform();
-            
-            // Draw terrain
-            float terrainY = ClientSize.Height - terrainHeight;
-            g.FillRectangle(Brushes.Gray, 0, terrainY, ClientSize.Width, terrainHeight);
-            // Draw landing pad
-            g.FillRectangle(Brushes.Green, padX, terrainY - 5, padWidth, 5);
-            
-            // Landing or crash messages
-            if (landedSuccess)
-            {
-                // Use a bigger font for end-game text
-                using var endFont = new Font(this.Font.FontFamily, this.Font.Size * 3, this.Font.Style);
-                var txt = "Landed!";
-                var size = g.MeasureString(txt, endFont);
-                g.DrawString(txt, endFont, Brushes.Green,
-                    (ClientSize.Width - size.Width) / 2, (ClientSize.Height - size.Height) / 2);
-                // Restart prompt
-                var prompt = "Press R to play again";
-                var psize = g.MeasureString(prompt, endFont);
-                g.DrawString(prompt, endFont, Brushes.White,
-                    (ClientSize.Width - psize.Width) / 2,
-                    (ClientSize.Height - size.Height) / 2 + size.Height + 5);
-                // Quit prompt
-                var quitPrompt = "Press X to quit the game";
-                var qsize = g.MeasureString(quitPrompt, endFont);
-                g.DrawString(quitPrompt, endFont, Brushes.White,
-                    (ClientSize.Width - qsize.Width) / 2,
-                    (ClientSize.Height - size.Height) / 2 + size.Height + 5 + psize.Height + 5);
-                return;
-            }
-            if (gameOver)
-            {
-                // Explosion
-                g.FillEllipse(Brushes.Red, x - 20, y - 20, 40, 40);
-                // Use a bigger font for end-game text
-                using var endFont2 = new Font(this.Font.FontFamily, this.Font.Size * 3, this.Font.Style);
-                var goText = "Game Over";
-                var size = g.MeasureString(goText, endFont2);
-                g.DrawString(goText, endFont2, Brushes.Red,
-                    (ClientSize.Width - size.Width) / 2, (ClientSize.Height - size.Height) / 2);
-                // Restart prompt
-                var prompt = "Press R to play again";
-                var pSize = g.MeasureString(prompt, endFont2);
-                g.DrawString(prompt, endFont2, Brushes.White,
-                    (ClientSize.Width - pSize.Width) / 2,
-                    (ClientSize.Height - size.Height) / 2 + size.Height + 5);
-                // Quit prompt
-                var quitPrompt2 = "Press X to quit the game";
-                var qSize2 = g.MeasureString(quitPrompt2, endFont2);
-                g.DrawString(quitPrompt2, endFont2, Brushes.White,
-                    (ClientSize.Width - qSize2.Width) / 2,
-                    (ClientSize.Height - size.Height) / 2 + size.Height + 5 + pSize.Height + 5);
-                return;
-            }
-
-            // HUD: draw velocity, altitude, and fuel relative to craft
-            float hudMargin = 10f;
-            float craftHalfWidth = 10f;
-            float craftHalfHeight = 20f;
-            float hudX = x + craftHalfWidth + hudMargin;
-            float hudY = y - craftHalfHeight;
-            // Velocity
-            var velText = $"Vx:{vx:0.00} Vy:{vy:0.00}";
-            var velSize = g.MeasureString(velText, this.Font);
-            g.DrawString(velText, this.Font, Brushes.White, hudX, hudY);
-            // Altitude
-            hudY += velSize.Height + 5;
-            var altValue = ClientSize.Height - y;
-            var altText = $"Alt:{altValue:0.00}";
-            var altSize = g.MeasureString(altText, this.Font);
-            g.DrawString(altText, this.Font, Brushes.White, hudX, hudY);
-            // Fuel
-            hudY += altSize.Height + 5;
-            var fuelText = $"Fuel:{fuel:0.00}";
-            g.DrawString(fuelText, this.Font, Brushes.White, hudX, hudY);
-        }
+        }  // end of gameTimer_Tick
 
         // Reset game state for new play
         private void ResetGame()
@@ -250,11 +236,127 @@ namespace LanderGame
             // Randomize new landing pad
             var rng = new Random();
             padX = rng.Next(0, ClientSize.Width - (int)padWidth);
+            // Place landing pad within 3 screens of start
+            int screenW = ClientSize.Width;
+            int lower = Math.Max(0, (int)x - 3 * screenW);
+            int upper = (int)x + 3 * screenW - (int)padWidth;
             // Reset gravity in case environment changed
             SetGravityFromSelection();
             // Stop timer and wait for first control
             gameTimer.Stop();
-            Invalidate();
+            // blink logic removed
         }
+
+        private void Form1_Paint(object? sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.Clear(Color.Black);
+            // Apply camera offset for world rendering
+            g.ResetTransform();
+            g.TranslateTransform(-cameraX, 0);
+            float wrapWidth = ClientSize.Width; // width used for terrain and pad tiling
+
+            // Draw terrain
+            // Draw terrain lines vector-style
+            if (terrainPoints != null)
+            {
+                using var terrainPen = new Pen(Color.Gray, 2);
+                int baseTile = (int)Math.Floor(cameraX / wrapWidth);
+                for (int t = baseTile - 1; t <= baseTile + 1; t++)
+                {
+                    g.DrawLines(terrainPen, terrainPoints);
+                    g.TranslateTransform(wrapWidth, 0);
+                }
+                g.TranslateTransform(-wrapWidth * 3, 0);
+            }
+
+            // Draw landing pad, tiled similarly
+            using (var padPen = new Pen(Color.Green, 3))
+            {
+                int baseTile = (int)Math.Floor(cameraX / wrapWidth);
+                for (int t = baseTile - 1; t <= baseTile + 1; t++)
+                {
+                    float offset = t * wrapWidth;
+                    float padY = GetTerrainYAt(padX);
+                    g.DrawLine(padPen,
+                        padX + offset, padY,
+                        padX + padWidth + offset, GetTerrainYAt(padX + padWidth));
+                    g.TranslateTransform(wrapWidth, 0);
+                }
+                g.TranslateTransform(-wrapWidth * 3, 0);
+            }
+
+            // Draw debris explosion on crash
+            if (gameOver && debris.Count > 0)
+            {
+                using var debrisPen = new Pen(Color.Orange, 2);
+                foreach (var (start, end, _, _) in debris)
+                    g.DrawLine(debrisPen, start, end);
+            }
+
+            // Draw vector lander (outlined triangle) with thrust flame only when not crashed
+            if (!gameOver)
+            {
+                var worldXform = g.Transform;
+                g.TranslateTransform(x, y);
+                g.RotateTransform(angle * 180f / (float)Math.PI);
+                PointF[] shipTri = { new PointF(0, -20), new PointF(-10, 20), new PointF(10, 20) };
+                using var shipPen = new Pen(Color.White, 2);
+                g.DrawPolygon(shipPen, shipTri);
+                if (thrusting)
+                {
+                    var rand = new Random();
+                    PointF[] flame = { new PointF(-5, 20), new PointF(0, 20 + rand.Next(5, 15)), new PointF(5, 20) };
+                    using var flamePen = new Pen(Color.Orange, 2);
+                    g.DrawPolygon(flamePen, flame);
+                }
+                g.Transform = worldXform;
+            }
+            // Reset transform for HUD (screen space) so HUD follows ship correctly
+            g.ResetTransform();
+
+            // HUD: velocity, altitude, fuel next to ship (only when not crashed)
+            if (!gameOver)
+            {
+                float craftHalfW = 10f, craftHalfH = 20f, hudMargin = 10f;
+                float screenX = x - cameraX, screenY = y;
+                float hudX = screenX + craftHalfW + hudMargin;
+                float hudY = screenY - craftHalfH;
+                var velText = $"Vx:{vx:0.00} Vy:{vy:0.00}";
+                g.DrawString(velText, this.Font, Brushes.White, hudX, hudY);
+                hudY += this.Font.Height + 5;
+                var altText = $"Alt:{ClientSize.Height - y:0.00}";
+                g.DrawString(altText, this.Font, Brushes.White, hudX, hudY);
+                hudY += this.Font.Height + 5;
+                var fuelText = $"Fuel:{fuel:0.00}";
+                g.DrawString(fuelText, this.Font, Brushes.White, hudX, hudY);
+            }
+
+            // Draw game over or success message
+            if (gameOver)
+            {
+                using (var font = new Font("Arial", 24))
+                using (var brush = new SolidBrush(Color.Red))
+                {
+                    g.DrawString("Game Over", font, brush, ClientSize.Width / 2 - 60, ClientSize.Height / 2 - 30);
+                    // Restart and quit prompts
+                    g.DrawString("Press R to restart", font, Brushes.White,
+                        ClientSize.Width / 2 - 100, ClientSize.Height / 2);
+                    g.DrawString("Press X to quit", font, Brushes.White,
+                        ClientSize.Width / 2 - 80, ClientSize.Height / 2 + 30);
+                }
+            }
+            else if (landedSuccess)
+            {
+                using (var font = new Font("Arial", 24))
+                using (var brush = new SolidBrush(Color.Lime))
+                {
+                    g.DrawString("Landed Successfully!", font, brush, ClientSize.Width / 2 - 120, ClientSize.Height / 2 - 30);
+                    // Restart and quit prompts
+                    g.DrawString("Press R to restart", font, Brushes.White, ClientSize.Width / 2 - 100, ClientSize.Height / 2);
+                    g.DrawString("Press X to quit", font, Brushes.White, ClientSize.Width / 2 - 80, ClientSize.Height / 2 + 30);
+                }
+            }
+        } // end Form1_Paint
     }
 }
