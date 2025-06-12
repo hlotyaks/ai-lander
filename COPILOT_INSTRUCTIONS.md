@@ -50,4 +50,37 @@ LanderGame/
 - **Testing**: Validate new logic by stepping through in debugger or adding simple unit tests if possible.
 
 ---
-*Use these guidelines when prompting Copilot to maintain a consistent codebase and accelerate feature development.*
+
+## Object-Oriented Guidance
+
+- The project is now structured in an object-oriented way. The main game entities are encapsulated as classes:
+  - `Lander`: Handles all lander state, physics, and drawing.
+  - `LandingPad`: Handles pad position, blinking lights, and drawing.
+  - `Terrain`: Handles terrain generation, flattening, height lookup, and drawing.
+- The main form (`Form1`) should not directly manage lander physics, pad logic, or terrain arrays. Instead, it should delegate to these objects for all game logic and rendering.
+- When adding new features or making changes:
+  - Extend or modify the relevant class (e.g., add new lander behaviors in `Lander.cs`).
+  - Keep UI and event handling in `Form1`, but all game state and logic in the appropriate object.
+  - Avoid adding new global variables or procedural code to `Form1` that could be encapsulated in a class.
+- When resetting or initializing the game, always re-instantiate or reset the `Lander`, `LandingPad`, and `Terrain` objects as needed.
+- All drawing should be performed by calling the `Draw` method of each object from `Form1_Paint`.
+- When working with terrain, use the `Terrain` class methods for generation, flattening, and height queries.
+
+## General Coding Style
+
+- Use C# best practices for encapsulation, naming, and method structure.
+- Keep each class focused on a single responsibility.
+- Document new methods and classes with XML comments.
+
+## Example Usage
+
+```csharp
+// In Form1:
+lander.Update(...);
+lander.Draw(g, thrusting);
+terrain.Generate(...);
+terrain.Draw(g, cameraX, wrapWidth);
+pad.Draw(g);
+```
+
+Keep the codebase clean, modular, and object-oriented.
