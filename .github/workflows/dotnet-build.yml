@@ -32,8 +32,7 @@ jobs:
               --collect:"XPlat Code Coverage"
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          # match the actual path under the Tests folder
-          path: Tests/TestResults/**/coverage.cobertura.xml
+          path: '**/TestResults/**/coverage.cobertura.xml'
