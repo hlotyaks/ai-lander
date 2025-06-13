@@ -3,7 +3,7 @@
 AI Lander is a classic lunar lander-style game built with C# and Windows Forms. The player controls a lander as it descends onto a procedurally generated terrain, aiming to land safely on a designated landing pad.
 
 [![.NET Build & Test](https://github.com/hloty/ai-lander/actions/workflows/dotnet-build.yml/badge.svg)](https://github.com/hloty/ai-lander/actions/workflows/dotnet-build.yml)
-[![codecov](https://codecov.io/gh/hloty/ai-lander/branch/main/graph/badge.svg)](https://codecov.io/gh/hloty/ai-lander)
+[![codecov](https://app.codecov.io/github/hlotyaks/ai-lander/branch/main/graph/badge.svg)](https://app.codecov.io/github/hlotyaks/ai-lander)
 
 ## Gameplay
 
