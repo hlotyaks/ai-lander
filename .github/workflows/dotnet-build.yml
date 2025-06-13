@@ -32,5 +32,4 @@ jobs:
       - name: Upload coverage report
         uses: codecov/codecov-action@v4
         with:
-          name: coverage-report
-          path: '**/TestResults/**/coverage.cobertura.xml'
+          files: '**/TestResults/**/coverage.cobertura.xml'
