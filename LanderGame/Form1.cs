@@ -41,7 +41,7 @@ namespace LanderGame
         }
 
         // Set gravity based on chosen environment
-        private void SetGravityFromSelection()
+        internal void SetGravityFromSelection()
         {
             switch (envComboBox.SelectedIndex)
             {
@@ -111,9 +111,19 @@ namespace LanderGame
             gameTimer.Stop();
         }
 
-        private float GetTerrainYAt(float xPos)
+        // Expose terrain height lookup for testing
+        internal float GetTerrainYAt(float xPos)
         {
             return terrain.GetHeightAt(xPos, ClientSize.Width);
+        }
+        
+        // Expose gravity for testing
+        internal float Gravity => gravity;
+        // Expose environment selection for testing
+        internal int EnvironmentIndex
+        {
+            get => envComboBox.SelectedIndex;
+            set => envComboBox.SelectedIndex = value;
         }
 
         private void gameTimer_Tick(object sender, EventArgs e)
