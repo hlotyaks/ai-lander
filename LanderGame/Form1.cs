@@ -124,7 +124,12 @@ namespace LanderGame
             if (!gameOver && !landedSuccess && y + 20 >= terrainY)
             {
                 // Check pad exists before landing
-                if (pad != null && Math.Abs(vx) <= 0.5f && Math.Abs(vy) <= 0.5f && modX >= pad.X && modX <= pad.X + pad.Width)
+                if (pad != null
+                    && Math.Abs(vx) <= 0.5f
+                    && Math.Abs(vy) <= 0.5f
+                    && modX >= pad.X
+                    && modX <= pad.X + pad.Width
+                    && Math.Abs(lander.Angle * 180f / (float)Math.PI) <= 15f)
                  {
                      gameTimer.Stop(); landedSuccess = true; pad.StopBlinking();
                  }
@@ -221,6 +226,10 @@ namespace LanderGame
                 float hudY = screenY - craftHalfH;
                 var velText = $"Vx:{lander.Vx:0.00} Vy:{lander.Vy:0.00}";
                 g.DrawString(velText, this.Font, Brushes.White, hudX, hudY);
+                hudY += this.Font.Height + 5;
+                // display lander angle in degrees
+                var angleText = $"Ang:{lander.Angle * 180f / (float)Math.PI:0.00}°";
+                g.DrawString(angleText, this.Font, Brushes.White, hudX, hudY);
                 hudY += this.Font.Height + 5;
                 var altText = $"Alt:{ClientSize.Height - lander.Y:0.00}";
                 g.DrawString(altText, this.Font, Brushes.White, hudX, hudY);
