@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Core Test Assets Debug",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Run All Tests",
+      "program": "${workspaceFolder}/Tests/bin/Debug/net8.0-windows/Tests.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/Tests",
+      "console": "internalConsole"
+    }
+  ]
+}

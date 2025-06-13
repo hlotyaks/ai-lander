@@ -114,7 +114,7 @@ namespace LanderGame
         // Expose terrain height lookup for testing
         internal float GetTerrainYAt(float xPos)
         {
-            return terrain.GetHeightAt(xPos, ClientSize.Width);
+            return terrain.GetHeightAt(xPos);
         }
         
         // Expose gravity for testing
@@ -132,17 +132,16 @@ namespace LanderGame
             float delta = gameTimer.Interval;
             lander.Update(delta, thrusting, rotatingLeft, rotatingRight, gravity);
             float x = lander.X, y = lander.Y, vx = lander.Vx, vy = lander.Vy;
-            // Terrain collision
-            float wrap = ClientSize.Width; float modX = (x % wrap + wrap) % wrap;
-            float terrainY = GetTerrainYAt(modX);
+            // Terrain collision using world X (no wrap)
+            float terrainY = terrain.GetHeightAt(x);
             if (!gameOver && !landedSuccess && y + 20 >= terrainY)
             {
-                // Check pad exists before landing
+                // Check pad exists before landing using world X
                 if (pad != null
                     && Math.Abs(vx) <= MaxLandingSpeed
                     && Math.Abs(vy) <= MaxLandingSpeed
-                    && modX >= pad.X
-                    && modX <= pad.X + pad.Width
+                    && x >= pad.X
+                    && x <= pad.X + pad.Width
                     && Math.Abs(lander.Angle * RadToDeg) <= LandingAngleToleranceDeg)
                 {
                     gameTimer.Stop(); landedSuccess = true; pad.StopBlinking();
