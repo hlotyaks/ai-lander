@@ -22,6 +22,10 @@ namespace LanderGame
         private float scrollMargin = 500f;
         private List<(PointF start, PointF end, float vx, float vy)> debris = new();
         private const int blinkIntervalMs = 500;
+        // conversion factor from radians to degrees
+        private const float RadToDeg = 180f / (float)Math.PI;
+        private const float LandingAngleToleranceDeg = 15f; // acceptable landing angle in degrees
+        private const float MaxLandingSpeed = 0.5f; // max speed for successful landing
 
         public Form1()
         {
@@ -92,9 +96,9 @@ namespace LanderGame
             // Build terrain
             float segW = ClientSize.Width / (float)terrainSegments;
             terrain.Generate(rng, ClientSize.Width, ClientSize.Height);
-             // Choose pad segment count and location
-             int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
-             int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
+            // Choose pad segment count and location
+            int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
+            int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
             // Flatten terrain under pad
             terrain.Flatten(startIdx, padSegs);
             int endIdx = startIdx + padSegs;
@@ -125,14 +129,14 @@ namespace LanderGame
             {
                 // Check pad exists before landing
                 if (pad != null
-                    && Math.Abs(vx) <= 0.5f
-                    && Math.Abs(vy) <= 0.5f
+                    && Math.Abs(vx) <= MaxLandingSpeed
+                    && Math.Abs(vy) <= MaxLandingSpeed
                     && modX >= pad.X
                     && modX <= pad.X + pad.Width
-                    && Math.Abs(lander.Angle * 180f / (float)Math.PI) <= 15f)
-                 {
-                     gameTimer.Stop(); landedSuccess = true; pad.StopBlinking();
-                 }
+                    && Math.Abs(lander.Angle * RadToDeg) <= LandingAngleToleranceDeg)
+                {
+                    gameTimer.Stop(); landedSuccess = true; pad.StopBlinking();
+                }
                 else
                 {
                     gameOver = true;
@@ -228,7 +232,7 @@ namespace LanderGame
                 g.DrawString(velText, this.Font, Brushes.White, hudX, hudY);
                 hudY += this.Font.Height + 5;
                 // display lander angle in degrees
-                var angleText = $"Ang:{lander.Angle * 180f / (float)Math.PI:0.00}°";
+                var angleText = $"Ang:{lander.Angle * RadToDeg:0.00}°";
                 g.DrawString(angleText, this.Font, Brushes.White, hudX, hudY);
                 hudY += this.Font.Height + 5;
                 var altText = $"Alt:{ClientSize.Height - lander.Y:0.00}";
