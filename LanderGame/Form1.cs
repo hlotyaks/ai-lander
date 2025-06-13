@@ -22,6 +22,10 @@ namespace LanderGame
         private float scrollMargin = 500f;
         private List<(PointF start, PointF end, float vx, float vy)> debris = new();
         private const int blinkIntervalMs = 500;
+        // conversion factor from radians to degrees
+        private const float RadToDeg = 180f / (float)Math.PI;
+        private const float LandingAngleToleranceDeg = 15f; // acceptable landing angle in degrees
+        private const float MaxLandingSpeed = 0.5f; // max speed for successful landing
 
         public Form1()
         {
@@ -37,7 +41,7 @@ namespace LanderGame
         }
 
         // Set gravity based on chosen environment
-        private void SetGravityFromSelection()
+        internal void SetGravityFromSelection()
         {
             switch (envComboBox.SelectedIndex)
             {
@@ -92,9 +96,9 @@ namespace LanderGame
             // Build terrain
             float segW = ClientSize.Width / (float)terrainSegments;
             terrain.Generate(rng, ClientSize.Width, ClientSize.Height);
-             // Choose pad segment count and location
-             int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
-             int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
+            // Choose pad segment count and location
+            int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
+            int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
             // Flatten terrain under pad
             terrain.Flatten(startIdx, padSegs);
             int endIdx = startIdx + padSegs;
@@ -107,9 +111,19 @@ namespace LanderGame
             gameTimer.Stop();
         }
 
-        private float GetTerrainYAt(float xPos)
+        // Expose terrain height lookup for testing
+        internal float GetTerrainYAt(float xPos)
         {
             return terrain.GetHeightAt(xPos, ClientSize.Width);
+        }
+        
+        // Expose gravity for testing
+        internal float Gravity => gravity;
+        // Expose environment selection for testing
+        internal int EnvironmentIndex
+        {
+            get => envComboBox.SelectedIndex;
+            set => envComboBox.SelectedIndex = value;
         }
 
         private void gameTimer_Tick(object sender, EventArgs e)
@@ -124,10 +138,15 @@ namespace LanderGame
             if (!gameOver && !landedSuccess && y + 20 >= terrainY)
             {
                 // Check pad exists before landing
-                if (pad != null && Math.Abs(vx) <= 0.5f && Math.Abs(vy) <= 0.5f && modX >= pad.X && modX <= pad.X + pad.Width)
-                 {
-                     gameTimer.Stop(); landedSuccess = true; pad.StopBlinking();
-                 }
+                if (pad != null
+                    && Math.Abs(vx) <= MaxLandingSpeed
+                    && Math.Abs(vy) <= MaxLandingSpeed
+                    && modX >= pad.X
+                    && modX <= pad.X + pad.Width
+                    && Math.Abs(lander.Angle * RadToDeg) <= LandingAngleToleranceDeg)
+                {
+                    gameTimer.Stop(); landedSuccess = true; pad.StopBlinking();
+                }
                 else
                 {
                     gameOver = true;
@@ -221,6 +240,10 @@ namespace LanderGame
                 float hudY = screenY - craftHalfH;
                 var velText = $"Vx:{lander.Vx:0.00} Vy:{lander.Vy:0.00}";
                 g.DrawString(velText, this.Font, Brushes.White, hudX, hudY);
+                hudY += this.Font.Height + 5;
+                // display lander angle in degrees
+                var angleText = $"Ang:{lander.Angle * RadToDeg:0.00}°";
+                g.DrawString(angleText, this.Font, Brushes.White, hudX, hudY);
                 hudY += this.Font.Height + 5;
                 var altText = $"Alt:{ClientSize.Height - lander.Y:0.00}";
                 g.DrawString(altText, this.Font, Brushes.White, hudX, hudY);
