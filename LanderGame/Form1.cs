@@ -26,6 +26,8 @@ namespace LanderGame
         private const float RadToDeg = 180f / (float)Math.PI;
         private const float LandingAngleToleranceDeg = 15f; // acceptable landing angle in degrees
         private const float MaxLandingSpeed = 0.5f; // max speed for successful landing
+        private List<PointF> stars = new List<PointF>();
+        private const int StarCount = 100;
 
         public Form1()
         {
@@ -96,6 +98,8 @@ namespace LanderGame
             // Build terrain
             float segW = ClientSize.Width / (float)terrainSegments;
             terrain.Generate(rng, ClientSize.Width, ClientSize.Height);
+            // generate initial star field
+            GenerateStars(rng);
             // Choose pad segment count and location
             int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
             int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
@@ -194,12 +198,33 @@ namespace LanderGame
             int endIdx2=start+padSegs; float padY2=(terrain.Points[start].Y+terrain.Points[endIdx2].Y)/2;
             for(int i=start;i<=endIdx2;i++)terrain.Points[i].Y=padY2;
             pad=new LandingPad(start*segW,padSegs*segW,padY2,blinkIntervalMs);
+            // regenerate stars
+            GenerateStars(new Random());
             SetGravityFromSelection();
             gameTimer.Stop();
             // Force redraw so screen resets immediately
             Invalidate();
         }
-        
+
+        /// <summary>Randomly place stars above the terrain profile.</summary>
+        private void GenerateStars(Random rng)
+        {
+            stars.Clear();
+            float screenH = ClientSize.Height;
+            for (int i = 0; i < StarCount; i++)
+            {
+                float x;
+                float y;
+                // ensure star is above terrain
+                do
+                {
+                    x = (float)(rng.NextDouble() * terrain.Points[^1].X);
+                    y = (float)(rng.NextDouble() * (screenH - terrainHeight));
+                } while (y >= terrain.GetHeightAt(x));
+                stars.Add(new PointF(x, y));
+            }
+        }
+
         private void Form1_Paint(object? sender, PaintEventArgs e)
         {
             var g = e.Graphics;
@@ -207,6 +232,9 @@ namespace LanderGame
             // Apply camera offset for world rendering
             g.ResetTransform();
             g.TranslateTransform(-cameraX, 0);
+            // draw star field
+            foreach (var star in stars)
+                g.FillRectangle(Brushes.White, star.X, star.Y, 2, 2);
             float wrapWidth = ClientSize.Width; // width used for terrain and pad tiling
 
             // Draw terrain
