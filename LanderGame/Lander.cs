@@ -55,7 +55,8 @@ namespace LanderGame
             PointF[] shipTri = { new PointF(0, -20), new PointF(-10, 20), new PointF(10, 20) };
             using var shipPen = new Pen(Color.White, 2);
             g.DrawPolygon(shipPen, shipTri);
-            if (thrusting)
+            // only show flame when thrusting and fuel > 0
+            if (thrusting && Fuel > 0f)
             {
                 var rand = new Random();
                 PointF[] flame = { new PointF(-5, 20), new PointF(0, 20 + rand.Next(5, 15)), new PointF(5, 20) };
