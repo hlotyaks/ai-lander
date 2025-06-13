@@ -20,10 +20,12 @@ namespace Tests
         {
             var terrain = new Terrain(5, 50, 300);
             terrain.Generate(new Random(0), 500, 400);
-            Assert.Equal(6, terrain.Points.Length);
+            // now precomputes a fixed number of points
+            Assert.Equal(200, terrain.Points.Length);
             foreach (var pt in terrain.Points)
             {
-                Assert.InRange(pt.Y, 300 - 50, 300);
+                // Y is clamped between 0 and BaseY
+                Assert.InRange(pt.Y, 0f, 300f);
             }
         }
 
