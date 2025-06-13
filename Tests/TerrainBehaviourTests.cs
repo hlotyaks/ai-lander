@@ -66,6 +66,7 @@ namespace Tests
             float cameraX = (count1 - 100 - 4) * segW;
             terrain.ExpandIfNeeded(cameraX);
             int count2 = terrain.Points.Length;
+            cameraX = (count2 - 100 - 4) * segW;
             terrain.ExpandIfNeeded(cameraX);
             int count3 = terrain.Points.Length;
             Assert.Equal(count1 + 200, count2);
