@@ -10,6 +10,7 @@ namespace LanderGame
         public float Width { get; private set; }
         public float Y { get; private set; }
         public bool LightsVisible { get; private set; }
+        public bool IsUsed { get; private set; } 
 
         private readonly System.Windows.Forms.Timer blinkTimer;
 
@@ -33,6 +34,7 @@ namespace LanderGame
         {
             blinkTimer.Stop();
             LightsVisible = true;
+            IsUsed = true;
         }
 
         public void Draw(Graphics g)

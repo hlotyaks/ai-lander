@@ -5,6 +5,7 @@ namespace LanderGame
 {
     public class Lander
     {
+        private readonly float maxFuel;
         public float X { get; private set; }
         public float Y { get; private set; }
         public float Vx { get; private set; }
@@ -19,7 +20,14 @@ namespace LanderGame
 
         public Lander(float startX, float startY, float startFuel = 100f)
         {
+            maxFuel = startFuel;
             Reset(startX, startY, startFuel);
+        }
+
+        /// <summary>Refills fuel to maximum capacity.</summary>
+        public void Refuel()
+        {
+            Fuel = maxFuel;
         }
 
         public void Reset(float startX, float startY, float startFuel = 100f)
@@ -78,6 +86,16 @@ namespace LanderGame
             // simple flame shape
             var rand = new Random();
             return new PointF[] { new PointF(-5, 20), new PointF(0, 20 + rand.Next(5, 15)), new PointF(5, 20) };
+        }
+
+        /// <summary>For testing: set internal state directly.</summary>
+        internal void SetState(float x, float y, float angle, float vx, float vy)
+        {
+            X = x;
+            Y = y;
+            Angle = angle;
+            Vx = vx;
+            Vy = vy;
         }
     }
 }

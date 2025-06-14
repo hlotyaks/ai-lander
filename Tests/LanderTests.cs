@@ -21,5 +21,18 @@ namespace Tests
             Assert.Equal(50, lander.X);
             Assert.Equal(75, lander.Y);
         }
+
+        [Fact]
+        public void Refuel_Resets_Fuel_To_Max()
+        {
+            float startFuel = 50f;
+            var lander = new Lander(0, 0, startFuel);
+            // consume some fuel
+            lander.Update(1000, true, false, false, 0f);
+            Assert.True(lander.Fuel < startFuel);
+            // refuel
+            lander.Refuel();
+            Assert.Equal(startFuel, lander.Fuel);
+        }
     }
 }
