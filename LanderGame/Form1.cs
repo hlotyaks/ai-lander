@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace LanderGame
 {
@@ -9,13 +10,15 @@ namespace LanderGame
     {
         // Object‐oriented game state
         private Lander lander = null!;   // initialized in Form1_Load
-        private LandingPad pad = null!;       // set in Form1_Load
+        private Terrain terrain = null!; // initialized in Form1_Load
+        private List<LandingPad> pads = new List<LandingPad>();
         private bool thrusting, rotatingLeft, rotatingRight;
         private bool gameOver;
+        private string crashReason = string.Empty;
         private bool landedSuccess;
+        private bool paused;
         private float gravity;
         private const float terrainHeight = 20f;
-        private Terrain terrain = null!; // initialized in Form1_Load
         private int terrainSegments = 40;
         private float terrainVariation = 500f;
         private float cameraX;
@@ -60,25 +63,33 @@ namespace LanderGame
 
         private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
-            // Quit on 'X' after game over or successful landing
-            if ((gameOver || landedSuccess) && e.KeyCode == Keys.X)
+            // Toggle pause on Escape (only during active play)
+            if (!gameOver && e.KeyCode == Keys.Escape)
             {
-                this.Close();
+                paused = !paused;
+                if (paused) gameTimer.Stop(); else gameTimer.Start();
+                Invalidate();
                 return;
             }
-            // Restart on 'R' after game over or successful landing
-            if ((gameOver || landedSuccess) && e.KeyCode == Keys.R)
-            {
-                ResetGame();
-                return;
-            }
-            // Start the game on first input
-            if (!gameTimer.Enabled && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Left || e.KeyCode == Keys.Right))
-                gameTimer.Start();
+         // Quit on 'X' after game over, successful landing, or pause menu
+         if ((gameOver || paused) && e.KeyCode == Keys.X)
+         {
+             this.Close();
+             return;
+         }
+         // Restart on 'R' after game over, successful landing, or pause menu
+         if ((gameOver || paused) && e.KeyCode == Keys.R)
+         {
+             ResetGame();
+             return;
+         }
+         // Start the game on first input
+         if (!gameTimer.Enabled && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Left || e.KeyCode == Keys.Right))
+             gameTimer.Start();
 
-            if (e.KeyCode == Keys.Up) thrusting = true;
-            if (e.KeyCode == Keys.Left) rotatingLeft = true;
-            if (e.KeyCode == Keys.Right) rotatingRight = true;
+         if (e.KeyCode == Keys.Up) thrusting = true;
+         if (e.KeyCode == Keys.Left) rotatingLeft = true;
+         if (e.KeyCode == Keys.Right) rotatingRight = true;
         }
 
         private void Form1_KeyUp(object sender, KeyEventArgs e)
@@ -93,7 +104,8 @@ namespace LanderGame
             // initialize lander and terrain now that ClientSize is set
             lander = new Lander(ClientSize.Width/2, 50);
             terrain = new Terrain(terrainSegments, terrainVariation, ClientSize.Height - terrainHeight);
-             // Generate jagged terrain and instantiate landing pad
+            pads.Clear();
+            // Generate jagged terrain and instantiate landing pad
             var rng = new Random();
             // Build terrain
             float segW = ClientSize.Width / (float)terrainSegments;
@@ -107,12 +119,25 @@ namespace LanderGame
             terrain.Flatten(startIdx, padSegs);
             int endIdx = startIdx + padSegs;
             float padY = (terrain.Points[startIdx].Y + terrain.Points[endIdx].Y) / 2;
-            // Instantiate landing pad
+            // Instantiate initial landing pad
             float padXCoord = startIdx * segW;
             float padW = padSegs * segW;
-            pad = new LandingPad(padXCoord, padW, padY, 500);
+            var initialPad = new LandingPad(padXCoord, padW, padY, blinkIntervalMs);
+            pads.Add(initialPad);
             // Pause simulation until first input
             gameTimer.Stop();
+        }
+
+        /// <summary>For testing: initialize game state as if loaded.</summary>
+        internal void InitializeForTest()
+        {
+            Form1_Load(this, EventArgs.Empty);
+        }
+
+        /// <summary>For testing: advance game by one timer tick.</summary>
+        internal void Tick()
+        {
+            gameTimer_Tick(this, EventArgs.Empty);
         }
 
         // Expose terrain height lookup for testing
@@ -120,7 +145,12 @@ namespace LanderGame
         {
             return terrain.GetHeightAt(xPos);
         }
-        
+        // Expose internal state for testing
+        internal Lander LanderInstance => lander;
+        internal IReadOnlyList<LandingPad> Pads => pads;
+        internal LandingPad CurrentPad => pads.Last();
+        internal bool LandedSuccessFlag => landedSuccess;
+
         // Expose gravity for testing
         internal float Gravity => gravity;
         // Expose environment selection for testing
@@ -130,39 +160,99 @@ namespace LanderGame
             set => envComboBox.SelectedIndex = value;
         }
 
+        // Expose crash reason for testing
+        internal string CrashReason => crashReason;
         private void gameTimer_Tick(object sender, EventArgs e)
         {
-            // Delegate physics update to lander
             float delta = gameTimer.Interval;
-            lander.Update(delta, thrusting, rotatingLeft, rotatingRight, gravity);
-            float x = lander.X, y = lander.Y, vx = lander.Vx, vy = lander.Vy;
-            // Terrain collision using world X (no wrap)
-            float terrainY = terrain.GetHeightAt(x);
-            if (!gameOver && !landedSuccess && y + 20 >= terrainY)
+
+            // Skip physics update if lander is stationary on ground (already landed)
+            if (landedSuccess)
             {
-                // Check pad exists before landing using world X
-                if (pad != null
-                    && Math.Abs(vx) <= MaxLandingSpeed
-                    && Math.Abs(vy) <= MaxLandingSpeed
-                    && x >= pad.X
-                    && x <= pad.X + pad.Width
-                    && Math.Abs(lander.Angle * RadToDeg) <= LandingAngleToleranceDeg)
+                // Check if lander is taking off (user applying thrust)
+                if (thrusting || rotatingLeft || rotatingRight)
                 {
-                    gameTimer.Stop(); landedSuccess = true; pad.StopBlinking();
+                    landedSuccess = false; // Reset landed state when taking off
+                    // Now apply physics update since we're taking off
+                    lander.Update(delta, thrusting, rotatingLeft, rotatingRight, gravity);
                 }
                 else
                 {
-                    gameOver = true;
-                    var rng2 = new Random(); int pieces=30;
-                    for(int i=0;i<pieces;i++) { var a2=(float)(rng2.NextDouble()*2*Math.PI);
-                        var start=new PointF(x,y);
-                        var end=new PointF(x+(float)Math.Cos(a2)*10,y+(float)Math.Sin(a2)*10);
-                        debris.Add((start,end,(end.X-start.X)*0.1f,(end.Y-start.Y)*0.1f)); }
+                    // Still landed and stationary, skip physics and collision detection
+                    Invalidate();
+                    return;
                 }
             }
-            // Camera follow
-            if (x-cameraX<scrollMargin) cameraX=Math.Max(0,x-scrollMargin);
-            else if (x-cameraX>ClientSize.Width-scrollMargin) cameraX=x-(ClientSize.Width-scrollMargin);
+            else
+            {
+                // Normal flight: apply physics update
+                lander.Update(delta, thrusting, rotatingLeft, rotatingRight, gravity);
+            }
+
+            float x = lander.X, y = lander.Y, vx = lander.Vx, vy = lander.Vy;
+
+            // Terrain collision and landing/crash handling
+            float segW = ClientSize.Width / (float)terrainSegments;
+            float terrainY = terrain.GetHeightAt(x);
+            if (!gameOver && vy >= 0f && y + 20 >= terrainY)
+            {
+                // clamp to surface and stop motion
+                lander.SetState(x, terrainY - 20f, lander.Angle, 0f, 0f);                // find unused pad under craft
+                var pad = pads.FirstOrDefault(p => !p.IsUsed && x >= p.X && x <= p.X + p.Width);
+                // landing success check
+                if (pad != null
+                    && Math.Abs(lander.Vx) <= MaxLandingSpeed
+                    && Math.Abs(lander.Vy) <= MaxLandingSpeed
+                    && Math.Abs(lander.Angle * RadToDeg) <= LandingAngleToleranceDeg)
+                {
+                    // Successful landing: refuel and spawn next pad
+                    lander.Refuel();
+                    // Ensure lander is completely stationary after landing
+                    lander.SetState(lander.X, lander.Y, lander.Angle, 0f, 0f);
+                    pad.StopBlinking();
+                    landedSuccess = true;
+                    var rnd = new Random();
+                    int offset = rnd.Next(100, 201);
+                    float nextX = pad.X + offset * segW;
+                    float nextW = pad.Width;
+                    terrain.FlattenAt(nextX, nextW);
+                    float nextY = terrain.GetHeightAt(nextX);
+                    var newPad = new LandingPad(nextX, nextW, nextY, blinkIntervalMs);
+                    pads.Add(newPad);
+                    return;
+                }
+                // Crash handling
+                gameOver = true;
+                if (pad == null)
+                    crashReason = "Crashed: no pad";
+                else if (Math.Abs(lander.Vx) > MaxLandingSpeed || Math.Abs(lander.Vy) > MaxLandingSpeed)
+                    crashReason = "Crashed: excessive speed";
+                else if (x < pad.X || x > pad.X + pad.Width)
+                    crashReason = "Crashed: missed pad";
+                else if (Math.Abs(lander.Angle * RadToDeg) > LandingAngleToleranceDeg)
+                    crashReason = "Crashed: bad angle";
+                else
+                    crashReason = "Crashed";
+                // generate debris
+                var rng2 = new Random();
+                for (int i = 0; i < 30; i++)
+                {
+                    var a2 = (float)(rng2.NextDouble() * 2 * Math.PI);
+                    var start = new PointF(x, y);
+                    var end = new PointF(x + (float)Math.Cos(a2) * 10, y + (float)Math.Sin(a2) * 10);
+                    debris.Add((start, end, (end.X - start.X) * 0.1f, (end.Y - start.Y) * 0.1f));
+                }
+                return;
+            }
+            // Camera follow (only during flight)
+            if (!gameOver)
+            {
+                if (x - cameraX < scrollMargin)
+                    cameraX = Math.Max(0, x - scrollMargin);
+                else if (x - cameraX > ClientSize.Width - scrollMargin)
+                    cameraX = x - (ClientSize.Width - scrollMargin);
+            }
+            // Always redraw to show landing result
             Invalidate();
 
             // Update debris pieces
@@ -188,7 +278,9 @@ namespace LanderGame
         {
             lander.Reset(ClientSize.Width/2,50);
             thrusting=rotatingLeft=rotatingRight=false;
-            gameOver=landedSuccess=false; cameraX=0f; debris.Clear();
+            gameOver=landedSuccess=false; cameraX=0f;
+            debris.Clear();
+            pads.Clear();
             // regenerate terrain and pad
             var rng=new Random(); float segW=ClientSize.Width/terrainSegments;
             int padSegs=Math.Clamp(1,(int)Math.Round(60/segW),terrainSegments);
@@ -196,8 +288,9 @@ namespace LanderGame
             terrain.Generate(rng, ClientSize.Width, ClientSize.Height);
             terrain.Flatten(start, padSegs);
             int endIdx2=start+padSegs; float padY2=(terrain.Points[start].Y+terrain.Points[endIdx2].Y)/2;
-            for(int i=start;i<=endIdx2;i++)terrain.Points[i].Y=padY2;
-            pad=new LandingPad(start*segW,padSegs*segW,padY2,blinkIntervalMs);
+            // instantiate new pad
+            var newPad = new LandingPad(start*segW,padSegs*segW,padY2,blinkIntervalMs);
+            pads.Add(newPad);
             // regenerate stars
             GenerateStars(new Random());
             SetGravityFromSelection();
@@ -240,8 +333,8 @@ namespace LanderGame
             // Draw terrain
             terrain.Draw(g, cameraX, wrapWidth);
 
-            // Draw landing pad if initialized
-            if (pad != null)
+            // Draw all landing pads
+            foreach (var pad in pads)
                 pad.Draw(g);
 
             // Draw debris explosion on crash
@@ -291,17 +384,22 @@ namespace LanderGame
                         ClientSize.Width / 2 - 100, ClientSize.Height / 2);
                     g.DrawString("Press X to quit", font, Brushes.White,
                         ClientSize.Width / 2 - 80, ClientSize.Height / 2 + 30);
+                    // display crash reason
+                    g.DrawString(crashReason, font, Brushes.White,
+                        ClientSize.Width / 2 - 100, ClientSize.Height / 2 + 60);
                 }
             }
-            else if (landedSuccess)
+            // Pause menu overlay
+            if (paused)
             {
                 using (var font = new Font("Arial", 24))
-                using (var brush = new SolidBrush(Color.Lime))
+                using (var brush = new SolidBrush(Color.Yellow))
                 {
-                    g.DrawString("Landed Successfully!", font, brush, ClientSize.Width / 2 - 120, ClientSize.Height / 2 - 30);
-                    // Restart and quit prompts
-                    g.DrawString("Press R to restart", font, Brushes.White, ClientSize.Width / 2 - 100, ClientSize.Height / 2);
-                    g.DrawString("Press X to quit", font, Brushes.White, ClientSize.Width / 2 - 80, ClientSize.Height / 2 + 30);
+                    var cx = ClientSize.Width / 2f;
+                    var cy = ClientSize.Height / 2f;
+                    g.DrawString("Paused", font, brush, cx - 50, cy - 60);
+                    g.DrawString("Press R to restart", font, Brushes.White, cx - 100, cy - 20);
+                    g.DrawString("Press X to quit", font, Brushes.White, cx - 80, cy + 20);
                 }
             }
         } // end Form1_Paint

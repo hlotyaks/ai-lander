@@ -10,6 +10,16 @@
       "args": [],
       "cwd": "${workspaceFolder}/Tests",
       "console": "internalConsole"
+    },
+    {
+      "name": "Launch LanderGame",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/LanderGame/bin/Debug/net8.0-windows/LanderGame.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/LanderGame",
+      "console": "internalConsole"
     }
   ]
 }
