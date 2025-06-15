@@ -33,6 +33,8 @@ The task 'Run All Tests' can be used to execute and see the results of all tests
 
 If you need to run the tests to see the results in the terminal use this command: `Write-Host "Starting test..."; dotnet test Tests --no-build --no-restore 2>&1; Write-Host "Test completed"`
 
+If an AI assistant needs to create temporary files that should not be included in the project it can use the `scratch` folder located in the repository root.
+
 ## Common Tasks & Prompts
 
 - **Add a new control**: "Insert a button to toggle debug overlay in `Form1.Designer.cs` using Copilot suggestions."
