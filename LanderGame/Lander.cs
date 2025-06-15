@@ -2,8 +2,7 @@ using System;
 using System.Drawing;
 
 namespace LanderGame
-{
-    public class Lander
+{    public class Lander
     {
         private readonly float maxFuel;
         public float X { get; private set; }
@@ -17,6 +16,11 @@ namespace LanderGame
         private readonly float rotationSpeed = 0.005f;
         private readonly float fuelConsumptionRate = 0.02f;
         private const float RadToDeg = 180f / (float)Math.PI;
+        
+        // Thrust plume growth tracking
+        private float thrustDuration = 0f;
+        private const float MaxThrustDuration = 2000f; // 2 seconds in milliseconds
+        private const int FlameStages = 5;
 
         public Lander(float startX, float startY, float startFuel = 100f)
         {
@@ -28,33 +32,38 @@ namespace LanderGame
         public void Refuel()
         {
             Fuel = maxFuel;
-        }
-
-        public void Reset(float startX, float startY, float startFuel = 100f)
+        }        public void Reset(float startX, float startY, float startFuel = 100f)
         {
             X = startX;
             Y = startY;
             Vx = Vy = Angle = 0f;
             Fuel = startFuel;
-        }
-
-        public void Update(float delta, bool thrusting, bool rotatingLeft, bool rotatingRight, float gravity)
+            thrustDuration = 0f;
+        }        public void Update(float delta, bool thrusting, bool rotatingLeft, bool rotatingRight, float gravity)
         {
             if (rotatingLeft) Angle -= rotationSpeed * delta;
             if (rotatingRight) Angle += rotationSpeed * delta;
 
+            // Update thrust duration for flame growth
             if (thrusting && Fuel > 0f)
             {
+                thrustDuration += delta;
+                if (thrustDuration > MaxThrustDuration) thrustDuration = MaxThrustDuration;
+                
                 Vx += (float)Math.Sin(Angle) * thrustPower * delta;
                 Vy += -(float)Math.Cos(Angle) * thrustPower * delta;
                 Fuel -= fuelConsumptionRate * delta;
                 if (Fuel < 0f) Fuel = 0f;
             }
+            else
+            {
+                thrustDuration = 0f; // Reset when not thrusting
+            }
 
             Vy += gravity * delta;
             X += Vx * delta;
             Y += Vy * delta;
-        }        public void Draw(Graphics g, bool thrusting)
+        }public void Draw(Graphics g, bool thrusting)
         {
             var worldXform = g.Transform;
             g.TranslateTransform(X, Y);
@@ -125,19 +134,35 @@ namespace LanderGame
             g.DrawLine(legPen, -6, 0, -12, 14);    // main strut  
             g.DrawLine(legPen, -12, 14, -14, 16);  // foot
             g.DrawLine(legPen, -15, 16, -11, 16);  // landing pad
-        }
-
-        /// <summary>Returns the flame polygon if thrusting and fuel available; otherwise null.</summary>
+        }        /// <summary>Returns the flame polygon if thrusting and fuel available; otherwise null.</summary>
         public PointF[]? GetFlamePolygon(bool thrusting)
         {
             if (!thrusting || Fuel <= 0f)
                 return null;
-            // simple flame shape
+                  // Calculate flame length based on thrust duration (5 stages over 2 seconds)
+            // Lander height is about 32 pixels (-20 to +12), so max flame = 32 pixels
+            float progress = thrustDuration / MaxThrustDuration; // 0.0 to 1.0
+            int stage = Math.Min((int)(progress * FlameStages), FlameStages - 1); // 0 to 4
+            
+            // Base flame lengths for each stage (reaching 32 pixels at stage 4)
+            float[] stageLengths = { 8f, 14f, 20f, 26f, 32f };
+            float flameLength = stageLengths[stage];
+            
+            // Add slight randomness for visual effect
             var rand = new Random();
-            return new PointF[] { new PointF(-5, 20), new PointF(0, 20 + rand.Next(5, 15)), new PointF(5, 20) };
-        }
-
-        /// <summary>For testing: set internal state directly.</summary>
+            float randomVariation = rand.Next(-2, 3); // -2 to +2 pixels
+            flameLength += randomVariation;
+            
+            // Ensure minimum length
+            if (flameLength < 5f) flameLength = 5f;
+            
+            return new PointF[] 
+            { 
+                new PointF(-5, 12), // Left base (bottom of lander)
+                new PointF(0, 12 + flameLength), // Tip
+                new PointF(5, 12) // Right base
+            };
+        }        /// <summary>For testing: set internal state directly.</summary>
         internal void SetState(float x, float y, float angle, float vx, float vy)
         {
             X = x;
@@ -146,5 +171,11 @@ namespace LanderGame
             Vx = vx;
             Vy = vy;
         }
+        
+        /// <summary>For testing: get current thrust duration.</summary>
+        internal float GetThrustDuration() => thrustDuration;
+        
+        /// <summary>For testing: set thrust duration directly.</summary>
+        internal void SetThrustDuration(float duration) => thrustDuration = duration;
     }
 }
