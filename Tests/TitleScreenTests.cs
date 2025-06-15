@@ -102,7 +102,7 @@ namespace Tests
             
             // Assert
             Assert.Equal(GameState.Playing, gameEngine.CurrentState);
-            Assert.Equal(100, gameEngine.Stars.Count);
+            Assert.Equal(300, gameEngine.Stars.Count); // Updated to expect 3x stars
             
             // Check that all stars are above terrain level
             foreach (var star in gameEngine.Stars)
@@ -111,8 +111,7 @@ namespace Tests
                 Assert.True(star.Y < terrainY, $"Star at ({star.X}, {star.Y}) should be above terrain at Y={terrainY}");
             }
         }
-        
-        [Fact]
+          [Fact]
         public void Stars_AreDifferentBetweenTitleAndGameplay()
         {
             // Arrange
@@ -124,12 +123,14 @@ namespace Tests
             
             // Act
             gameEngine.StartGame(800, 600);
-            var gameplayStars = gameEngine.Stars.ToList();
-            
-            // Assert - The star collections should be different
-            Assert.NotEqual(titleStars.Count, 0);
-            Assert.NotEqual(gameplayStars.Count, 0);
+            var gameplayStars = gameEngine.Stars.ToList();            // Assert - The star collections should be different
+            Assert.NotEmpty(titleStars);
+            Assert.NotEmpty(gameplayStars);
             Assert.NotEqual(titleStars, gameplayStars);
+            
+            // Title screen should have 100 stars, gameplay should have more for infinite scrolling
+            Assert.Equal(100, titleStars.Count);
+            Assert.True(gameplayStars.Count >= 300, $"Gameplay should have at least 300 stars but has {gameplayStars.Count}");
         }
 
         [Fact]
@@ -148,6 +149,36 @@ namespace Tests
             // The DrawMoonSurface method should be called when in title screen state during paint
             // This test verifies the conditions are right for moon surface rendering
             Assert.True(form.ClientSize.Width > 0 || form.ClientSize.Height > 0); // Form should have dimensions for rendering
+        }
+
+        [Fact]
+        public void Stars_ExpansionMaintainsBackgroundCoverage()
+        {
+            // Arrange
+            var gameEngine = new GameEngine();
+            gameEngine.Initialize(800, 600, 0.001f);
+            gameEngine.StartGame(800, 600);
+            
+            // Get initial star count and rightmost star position
+            int initialStarCount = gameEngine.Stars.Count;
+            float initialMaxX = gameEngine.Stars.Max(s => s.X);
+            
+            // Simulate camera movement far to the right (like during long gameplay)
+            var lander = gameEngine.LanderInstance;
+            lander.SetState(initialMaxX + 1000, 300, 0, 0, 0); // Move lander far right
+            
+            // Act - simulate several tick cycles to trigger star expansion
+            for (int i = 0; i < 10; i++)
+            {
+                gameEngine.Tick(16f, 800, 600);
+            }
+            
+            // Assert - stars should have expanded
+            int newStarCount = gameEngine.Stars.Count;
+            float newMaxX = gameEngine.Stars.Max(s => s.X);
+            
+            Assert.True(newStarCount > initialStarCount, $"Star count should increase from {initialStarCount} to {newStarCount}");
+            Assert.True(newMaxX > initialMaxX, $"Star field should extend further right from {initialMaxX} to {newMaxX}");
         }
     }
 }

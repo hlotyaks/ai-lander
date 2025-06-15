@@ -206,15 +206,16 @@ namespace LanderGame
                 GenerateDebris(x, y);
                 GameStateChanged?.Invoke();
                 return;
-            }
-
-            // Camera follow (only during flight)
+            }            // Camera follow (only during flight)
             if (!gameOver)
             {
                 if (x - cameraX < scrollMargin)
                     cameraX = Math.Max(0, x - scrollMargin);
                 else if (x - cameraX > clientWidth - scrollMargin)
                     cameraX = x - (clientWidth - scrollMargin);
+                
+                // Expand starfield if needed as we scroll
+                ExpandStarsIfNeeded(cameraX, clientWidth, clientHeight);
             }
 
             // Update debris pieces
@@ -230,22 +231,49 @@ namespace LanderGame
                 float y = (float)(rng.NextDouble() * clientHeight);
                 titleScreenStars.Add(new PointF(x, y));
             }
-        }
-
-        private void GenerateGameplayStars(Random rng, int clientWidth, int clientHeight)
+        }        private void GenerateGameplayStars(Random rng, int clientWidth, int clientHeight)
         {
             gameplayStars.Clear();
-            for (int i = 0; i < StarCount; i++)
+            // Generate stars across a much larger area to account for infinite scrolling
+            float starFieldWidth = Math.Max(terrain.Points[^1].X * 3, clientWidth * 5);
+            for (int i = 0; i < StarCount * 3; i++) // More stars for larger area
             {
                 float x;
                 float y;
                 // Generate stars that are above terrain level
                 do
                 {
-                    x = (float)(rng.NextDouble() * terrain.Points[^1].X);
+                    x = (float)(rng.NextDouble() * starFieldWidth);
                     y = (float)(rng.NextDouble() * (clientHeight - terrainHeight));
                 } while (y >= terrain.GetHeightAt(x));
                 gameplayStars.Add(new PointF(x, y));
+            }
+        }
+
+        private void ExpandStarsIfNeeded(float cameraX, int clientWidth, int clientHeight)
+        {
+            // Check if we need more stars ahead of the camera
+            float rightEdge = cameraX + clientWidth * 2; // Look ahead 2 screen widths
+            float maxStarX = gameplayStars.Count > 0 ? gameplayStars.Max(s => s.X) : 0;
+            
+            if (rightEdge > maxStarX)
+            {
+                var rng = new Random();
+                int newStarsCount = StarCount; // Add more stars
+                float newStarWidth = clientWidth * 3; // 3 screen widths ahead
+                
+                for (int i = 0; i < newStarsCount; i++)
+                {
+                    float x;
+                    float y;
+                    // Generate stars that are above terrain level
+                    do
+                    {
+                        x = maxStarX + (float)(rng.NextDouble() * newStarWidth);
+                        y = (float)(rng.NextDouble() * (clientHeight - terrainHeight));
+                    } while (y >= terrain.GetHeightAt(x));
+                    gameplayStars.Add(new PointF(x, y));
+                }
             }
         }
 
