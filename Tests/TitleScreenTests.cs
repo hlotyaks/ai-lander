@@ -181,5 +181,20 @@ namespace Tests
             Assert.True(newStarCount > initialStarCount, $"Star count should increase from {initialStarCount} to {newStarCount}");
             Assert.True(newMaxX > initialMaxX, $"Star field should extend further right from {initialMaxX} to {newMaxX}");
         }
+
+        [Fact]
+        public void TitleScreen_DrawsWithoutError()
+        {
+            // Arrange
+            var titleScreen = new TitleScreen();
+            var gameEngine = new GameEngine();
+            gameEngine.Initialize(800, 600, 0.001f);
+            
+            using var bmp = new System.Drawing.Bitmap(800, 600);
+            using var g = System.Drawing.Graphics.FromImage(bmp);
+            
+            // Act & Assert: Should not throw
+            titleScreen.Draw(g, 800, 600, gameEngine.Stars);
+        }
     }
 }
