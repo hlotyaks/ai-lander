@@ -126,29 +126,24 @@ namespace LanderGame
                 lander.Update(delta, thrusting, rotatingLeft, rotatingRight, gravity);
             }
 
-            float x = lander.X, y = lander.Y, vx = lander.Vx, vy = lander.Vy;
-
-            // Terrain collision and landing/crash handling
+            float x = lander.X, y = lander.Y, vx = lander.Vx, vy = lander.Vy;            // Terrain collision and landing/crash handling
             float segW = clientWidth / (float)terrainSegments;
             float terrainY = terrain.GetHeightAt(x);
             if (!gameOver && vy >= 0f && y + 20 >= terrainY)
             {
-                // clamp to surface and stop motion
-                lander.SetState(x, terrainY - 20f, lander.Angle, 0f, 0f);
-                
                 // find unused pad under craft
                 var pad = pads.FirstOrDefault(p => !p.IsUsed && x >= p.X && x <= p.X + p.Width);
                 
-                // landing success check
+                // landing success check (use original velocities before resetting)
                 if (pad != null
-                    && Math.Abs(lander.Vx) <= MaxLandingSpeed
-                    && Math.Abs(lander.Vy) <= MaxLandingSpeed
-                    && Math.Abs(lander.Angle * RadToDeg) <= LandingAngleToleranceDeg)
-                {
-                    // Successful landing: refuel and spawn next pad
+                    && Math.Abs(vx) <= MaxLandingSpeed
+                    && Math.Abs(vy) <= MaxLandingSpeed
+                    && Math.Abs(lander.Angle * RadToDeg) <= LandingAngleToleranceDeg)                {
+                    // Successful landing: clamp to surface and stop motion
+                    lander.SetState(x, terrainY - 20f, lander.Angle, 0f, 0f);
+                    
+                    // Refuel and mark pad as used
                     lander.Refuel();
-                    // Ensure lander is completely stationary after landing
-                    lander.SetState(lander.X, lander.Y, lander.Angle, 0f, 0f);
                     pad.StopBlinking();
                     landedSuccess = true;
                     
@@ -164,13 +159,13 @@ namespace LanderGame
                     
                     GameStateChanged?.Invoke();
                     return;
-                }
-                
-                // Crash handling
+                }                
+                // Crash handling - clamp to surface and stop motion first
+                lander.SetState(x, terrainY - 20f, lander.Angle, 0f, 0f);
                 gameOver = true;
                 if (pad == null)
                     crashReason = "Crashed: no pad";
-                else if (Math.Abs(lander.Vx) > MaxLandingSpeed || Math.Abs(lander.Vy) > MaxLandingSpeed)
+                else if (Math.Abs(vx) > MaxLandingSpeed || Math.Abs(vy) > MaxLandingSpeed)
                     crashReason = "Crashed: excessive speed";
                 else if (x < pad.X || x > pad.X + pad.Width)
                     crashReason = "Crashed: missed pad";

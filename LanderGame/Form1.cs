@@ -12,7 +12,7 @@ namespace LanderGame
         private bool thrusting, rotatingLeft, rotatingRight;
         private bool paused;
         private float gravity;
-        
+
         // conversion factor from radians to degrees
         private const float RadToDeg = 180f / (float)Math.PI;
 
@@ -55,25 +55,25 @@ namespace LanderGame
                 Invalidate();
                 return;
             }
-         // Quit on 'X' after game over, successful landing, or pause menu
-         if ((gameEngine.IsGameOver || paused) && e.KeyCode == Keys.X)
-         {
-             this.Close();
-             return;
-         }
-         // Restart on 'R' after game over, successful landing, or pause menu
-         if ((gameEngine.IsGameOver || paused) && e.KeyCode == Keys.R)
-         {
-             ResetGame();
-             return;
-         }
-         // Start the game on first input
-         if (!gameTimer.Enabled && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Left || e.KeyCode == Keys.Right))
-             gameTimer.Start();
+            // Quit on 'X' after game over, successful landing, or pause menu
+            if ((gameEngine.IsGameOver || paused) && e.KeyCode == Keys.X)
+            {
+                this.Close();
+                return;
+            }
+            // Restart on 'R' after game over, successful landing, or pause menu
+            if ((gameEngine.IsGameOver || paused) && e.KeyCode == Keys.R)
+            {
+                ResetGame();
+                return;
+            }
+            // Start the game on first input
+            if (!gameTimer.Enabled && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Left || e.KeyCode == Keys.Right))
+                gameTimer.Start();
 
-         if (e.KeyCode == Keys.Up) thrusting = true;
-         if (e.KeyCode == Keys.Left) rotatingLeft = true;
-         if (e.KeyCode == Keys.Right) rotatingRight = true;
+            if (e.KeyCode == Keys.Up) thrusting = true;
+            if (e.KeyCode == Keys.Left) rotatingLeft = true;
+            if (e.KeyCode == Keys.Right) rotatingRight = true;
         }
 
         private void Form1_KeyUp(object sender, KeyEventArgs e)
@@ -90,7 +90,7 @@ namespace LanderGame
             gameEngine.GameStateChanged += () => Invalidate();
             gameEngine.RequestRedraw += () => Invalidate();
             gameEngine.Initialize(ClientSize.Width, ClientSize.Height, gravity);
-            
+
             // Pause simulation until first input
             gameTimer.Stop();
         }
@@ -134,7 +134,7 @@ namespace LanderGame
         {
             // Update input state
             gameEngine.UpdateInput(thrusting, rotatingLeft, rotatingRight);
-            
+
             // Tick the game engine
             float delta = gameTimer.Interval;
             gameEngine.Tick(delta, ClientSize.Width, ClientSize.Height);
@@ -158,11 +158,11 @@ namespace LanderGame
             // Apply camera offset for world rendering
             g.ResetTransform();
             g.TranslateTransform(-gameEngine.CameraX, 0);
-            
+
             // draw star field
             foreach (var star in gameEngine.Stars)
                 g.FillRectangle(Brushes.White, star.X, star.Y, 2, 2);
-            
+
             float wrapWidth = ClientSize.Width; // width used for terrain and pad tiling
 
             // Draw terrain
@@ -181,7 +181,7 @@ namespace LanderGame
             }
 
             // Draw lander
-            if(!gameEngine.IsGameOver) gameEngine.LanderInstance.Draw(g, thrusting);
+            if (!gameEngine.IsGameOver) gameEngine.LanderInstance.Draw(g, thrusting);
 
             // Reset transform for HUD (screen space)
             g.ResetTransform();
