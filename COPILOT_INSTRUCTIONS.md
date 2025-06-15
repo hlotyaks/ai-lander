@@ -1,5 +1,4 @@
-# GitHub Copilot Instructions- **Modify game physics**: "Update the GameEngine physics parameters and adjust fuel consumption rate."
-- **Terrain changes**: "Adjust terrain generation parameters in GameEngine initialization."or LanderGame
+# GitHub Copilot Instructions
 
 This document provides guidelines for leveraging GitHub Copilot to extend and maintain this .NET WinForms lunar lander game.
 
@@ -66,16 +65,17 @@ Tests/
 
 The game now uses a clean separation of concerns with an event-driven architecture:
 
-### GameEngine Class (NEW)
+### GameEngine Class
+
 - **Purpose**: Central game logic controller
-- **Responsibilities**: 
+- **Responsibilities**:
   - Game state management (running, paused, game over)
   - Physics simulation and collision detection
   - Landing/crash logic with multiple failure modes
   - Camera following and scrolling
   - Debris simulation
   - Multi-pad progression system
-- **Events**: 
+- **Events**:
   - `GameStateChanged`: Notifies UI when game state changes
   - `RequestRedraw`: Requests UI refresh for smooth animation
 - **Key Methods**:
@@ -84,7 +84,8 @@ The game now uses a clean separation of concerns with an event-driven architectu
   - `Tick()`: Main game loop iteration
   - `UpdateInput()`: Processes player input
 
-### Form1 Class (Refactored)
+### Form1 Class
+
 - **Purpose**: Pure UI layer
 - **Responsibilities**:
   - Input handling (keyboard events)
