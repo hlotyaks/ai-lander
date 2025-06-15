@@ -54,28 +54,77 @@ namespace LanderGame
             Vy += gravity * delta;
             X += Vx * delta;
             Y += Vy * delta;
-        }
-
-        public void Draw(Graphics g, bool thrusting)
+        }        public void Draw(Graphics g, bool thrusting)
         {
             var worldXform = g.Transform;
             g.TranslateTransform(X, Y);
             g.RotateTransform(Angle * RadToDeg);
+            
             using var shipPen = new Pen(Color.White, 2);
+            using var legPen = new Pen(Color.LightGray, 1.5f);
+            
+            // Draw landing legs first (behind main body)
+            DrawLandingLegs(g, legPen);
+            
+            // Draw main body
             g.DrawPolygon(shipPen, GetShipPolygon());
+            
+            // Draw thrust flame
             var flame = GetFlamePolygon(thrusting);
             if (flame != null)
             {
                 using var flamePen = new Pen(Color.Orange, 2);
                 g.DrawPolygon(flamePen, flame);
             }
+            
             g.Transform = worldXform;
-        }
-
-        /// <summary>Returns the ship's polygon relative to its origin.</summary>
+        }        /// <summary>Returns the ship's polygon relative to its origin - Apollo LEM style.</summary>
         public PointF[] GetShipPolygon()
         {
-            return new PointF[] { new PointF(0, -20), new PointF(-10, 20), new PointF(10, 20) };
+            // Apollo LEM main body - octagonal shape representing command module + descent stage
+            return new PointF[] 
+            {
+                // Command module (top, narrow)
+                new PointF(-3, -20),
+                new PointF(3, -20),
+                new PointF(5, -15),
+                
+                // Descent stage (wider body)
+                new PointF(8, -8),
+                new PointF(8, 8),
+                new PointF(4, 12),
+                new PointF(-4, 12),
+                new PointF(-8, 8),
+                new PointF(-8, -8),
+                new PointF(-5, -15)
+            };
+        }
+
+        /// <summary>Draws the four landing legs extending from the main body.</summary>
+        private void DrawLandingLegs(Graphics g, Pen legPen)
+        {
+            // Four landing legs extending outward from the descent stage
+            // Each leg: strut from body to foot, with landing pad
+            
+            // Front-right leg
+            g.DrawLine(legPen, 6, 6, 14, 16);      // main strut
+            g.DrawLine(legPen, 14, 16, 16, 18);    // foot
+            g.DrawLine(legPen, 13, 18, 17, 18);    // landing pad
+            
+            // Front-left leg  
+            g.DrawLine(legPen, -6, 6, -14, 16);    // main strut
+            g.DrawLine(legPen, -14, 16, -16, 18);  // foot
+            g.DrawLine(legPen, -17, 18, -13, 18);  // landing pad
+            
+            // Back-right leg
+            g.DrawLine(legPen, 6, 0, 12, 14);      // main strut
+            g.DrawLine(legPen, 12, 14, 14, 16);    // foot
+            g.DrawLine(legPen, 11, 16, 15, 16);    // landing pad
+            
+            // Back-left leg
+            g.DrawLine(legPen, -6, 0, -12, 14);    // main strut  
+            g.DrawLine(legPen, -12, 14, -14, 16);  // foot
+            g.DrawLine(legPen, -15, 16, -11, 16);  // landing pad
         }
 
         /// <summary>Returns the flame polygon if thrusting and fuel available; otherwise null.</summary>

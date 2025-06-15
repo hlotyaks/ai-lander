@@ -1,20 +1,29 @@
 using Xunit;
 using LanderGame;
 using System.Drawing;
+using System.Linq;
 
 namespace Tests
 {
     public class LanderDrawTests
-    {
-        [Fact]
-        public void GetShipPolygon_ReturnsExpectedTriangle()
+    {        [Fact]
+        public void GetShipPolygon_ReturnsExpectedLEMShape()
         {
             var lander = new Lander(0, 0, 100f);
             var poly = lander.GetShipPolygon();
-            Assert.Equal(3, poly.Length);
-            Assert.Equal(new PointF(0, -20), poly[0]);
-            Assert.Equal(new PointF(-10, 20), poly[1]);
-            Assert.Equal(new PointF(10, 20), poly[2]);
+            
+            // LEM design should have 10 points forming an octagonal main body
+            Assert.Equal(10, poly.Length);
+            
+            // Check key points: top of command module, and main body corners
+            Assert.Equal(new PointF(-3, -20), poly[0]); // Top left of command module
+            Assert.Equal(new PointF(3, -20), poly[1]);  // Top right of command module
+            Assert.Equal(new PointF(8, -8), poly[3]);   // Right side of descent stage
+            Assert.Equal(new PointF(-8, -8), poly[8]);  // Left side of descent stage
+            
+            // Verify the shape is roughly centered and has reasonable dimensions
+            Assert.True(poly.All(p => p.X >= -8 && p.X <= 8), "Ship width should be within reasonable bounds");
+            Assert.True(poly.All(p => p.Y >= -20 && p.Y <= 12), "Ship height should be within reasonable bounds");
         }
 
         [Fact]
