@@ -5,8 +5,7 @@ using LanderGame;
 namespace Tests
 {
     public class GameEngineTests
-    {
-        [Fact]
+    {        [Fact]
         public void Tick_WithSuccessfulLanding_SetsLandedSuccessFlag()
         {
             // Arrange
@@ -16,6 +15,7 @@ namespace Tests
             float gravity = 0.001f; // Earth gravity
             
             gameEngine.Initialize(clientWidth, clientHeight, gravity);
+            gameEngine.StartGame(clientWidth, clientHeight);
             
             // Get the initial landing pad
             var initialPad = gameEngine.CurrentPad;
@@ -47,8 +47,7 @@ namespace Tests
             Assert.Equal(0f, lander.Vx);
             Assert.Equal(0f, lander.Vy);
         }
-        
-        [Fact]
+          [Fact]
         public void Tick_WithCrashConditions_SetsGameOverState()
         {
             // Arrange
@@ -58,6 +57,7 @@ namespace Tests
             float gravity = 0.001f;
             
             gameEngine.Initialize(clientWidth, clientHeight, gravity);
+            gameEngine.StartGame(clientWidth, clientHeight);
             
             var initialPad = gameEngine.CurrentPad;
             var lander = gameEngine.LanderInstance;
@@ -82,8 +82,7 @@ namespace Tests
             Assert.Contains("excessive speed", gameEngine.CrashReason);
             Assert.True(gameEngine.Debris.Count > 0, "Debris should be generated after crash");
         }
-        
-        [Fact]
+          [Fact]
         public void Tick_WithLandedLander_SkipsPhysicsWhenStationary()
         {
             // Arrange
@@ -93,6 +92,7 @@ namespace Tests
             float gravity = 0.001f;
             
             gameEngine.Initialize(clientWidth, clientHeight, gravity);
+            gameEngine.StartGame(clientWidth, clientHeight);
             
             var initialPad = gameEngine.CurrentPad;
             var lander = gameEngine.LanderInstance;
@@ -120,8 +120,7 @@ namespace Tests
             Assert.Equal(0f, lander.Vy);
             Assert.True(gameEngine.LandedSuccessFlag, "LandedSuccessFlag should remain true");
         }
-        
-        [Fact]
+          [Fact]
         public void Tick_WithTakeoffFromLandedState_ResetsLandedFlag()
         {
             // Arrange
@@ -131,6 +130,7 @@ namespace Tests
             float gravity = 0.001f;
             
             gameEngine.Initialize(clientWidth, clientHeight, gravity);
+            gameEngine.StartGame(clientWidth, clientHeight);
             
             var initialPad = gameEngine.CurrentPad;
             var lander = gameEngine.LanderInstance;
