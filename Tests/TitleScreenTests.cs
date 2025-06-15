@@ -155,7 +155,8 @@ namespace Tests
         public void Stars_ExpansionMaintainsBackgroundCoverage()
         {
             // Arrange
-            var gameEngine = new GameEngine();
+            var seededRng = new System.Random(42); // Fixed seed for deterministic test
+            var gameEngine = new GameEngine(seededRng);
             gameEngine.Initialize(800, 600, 0.001f);
             gameEngine.StartGame(800, 600);
             

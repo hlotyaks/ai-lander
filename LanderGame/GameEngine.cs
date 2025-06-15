@@ -57,13 +57,20 @@ namespace LanderGame
         public LandingPad CurrentPad => pads.Last();
         public IReadOnlyList<PointF> Stars => currentState == GameState.TitleScreen ? titleScreenStars : gameplayStars;
         public IReadOnlyList<(PointF start, PointF end, float vx, float vy)> Debris => debris;
-        public Terrain TerrainInstance => terrain;        public void Initialize(int clientWidth, int clientHeight, float selectedGravity)
+        public Terrain TerrainInstance => terrain;        // Use a single Random instance for deterministic behavior
+        private readonly Random rng;
+
+        public GameEngine(Random? rngOverride = null)
+        {
+            rng = rngOverride ?? new Random();
+        }
+
+        public void Initialize(int clientWidth, int clientHeight, float selectedGravity)
         {
             // Set gravity
             gravity = selectedGravity;
 
             // Generate stars for title screen
-            var rng = new Random();
             titleScreenStars.Clear();
             GenerateTitleScreenStars(rng, clientWidth, clientHeight);
 
@@ -86,7 +93,6 @@ namespace LanderGame
             debris.Clear();
 
             // Generate terrain and initial landing pad
-            var rng = new Random();
             float segW = clientWidth / (float)terrainSegments;
             terrain.Generate(rng, clientWidth, clientHeight);
 
@@ -97,7 +103,8 @@ namespace LanderGame
             int endIdx = startIdx + padSegs;
             float padY = (terrain.Points[startIdx].Y + terrain.Points[endIdx].Y) / 2;
             float padXCoord = startIdx * segW;
-            float padW = padSegs * segW;            var initialPad = new LandingPad(padXCoord, padW, padY, blinkIntervalMs);
+            float padW = padSegs * segW;
+            var initialPad = new LandingPad(padXCoord, padW, padY, blinkIntervalMs);
             pads.Add(initialPad);
 
             // Generate gameplay stars that avoid terrain
@@ -255,13 +262,10 @@ namespace LanderGame
             // Check if we need more stars ahead of the camera
             float rightEdge = cameraX + clientWidth * 2; // Look ahead 2 screen widths
             float maxStarX = gameplayStars.Count > 0 ? gameplayStars.Max(s => s.X) : 0;
-            
             if (rightEdge > maxStarX)
             {
-                var rng = new Random();
                 int newStarsCount = StarCount; // Add more stars
                 float newStarWidth = clientWidth * 3; // 3 screen widths ahead
-                
                 for (int i = 0; i < newStarsCount; i++)
                 {
                     float x;
@@ -279,7 +283,6 @@ namespace LanderGame
 
         private void GenerateDebris(float x, float y)
         {
-            var rng = new Random();
             for (int i = 0; i < 30; i++)
             {
                 var a = (float)(rng.NextDouble() * 2 * Math.PI);
