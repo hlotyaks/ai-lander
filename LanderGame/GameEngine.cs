@@ -5,9 +5,18 @@ using System.Linq;
 
 namespace LanderGame
 {
+    public enum GameState
+    {
+        TitleScreen,
+        Playing,
+        GameOver,
+        Paused
+    }
+
     public class GameEngine
     {
         // Game state
+        private GameState currentState = GameState.TitleScreen;
         private Lander lander = null!;
         private Terrain terrain = null!;
         private List<LandingPad> pads = new List<LandingPad>();
@@ -15,9 +24,9 @@ namespace LanderGame
         private string crashReason = string.Empty;
         private bool landedSuccess;
         private float gravity;
-        private float cameraX;
-        private List<(PointF start, PointF end, float vx, float vy)> debris = new();
-        private List<PointF> stars = new List<PointF>();
+        private float cameraX;        private List<(PointF start, PointF end, float vx, float vy)> debris = new();
+        private List<PointF> titleScreenStars = new List<PointF>();
+        private List<PointF> gameplayStars = new List<PointF>();
 
         // Game constants
         private const float terrainHeight = 20f;
@@ -38,6 +47,7 @@ namespace LanderGame
         public event Action? RequestRedraw;
 
         // Properties for external access
+        public GameState CurrentState => currentState;
         public bool IsGameOver => gameOver;
         public string CrashReason => crashReason;
         public bool LandedSuccessFlag => landedSuccess;
@@ -45,42 +55,20 @@ namespace LanderGame
         public Lander LanderInstance => lander;
         public IReadOnlyList<LandingPad> Pads => pads;
         public LandingPad CurrentPad => pads.Last();
-        public IReadOnlyList<PointF> Stars => stars;
+        public IReadOnlyList<PointF> Stars => currentState == GameState.TitleScreen ? titleScreenStars : gameplayStars;
         public IReadOnlyList<(PointF start, PointF end, float vx, float vy)> Debris => debris;
-        public Terrain TerrainInstance => terrain;
-
-        public void Initialize(int clientWidth, int clientHeight, float selectedGravity)
+        public Terrain TerrainInstance => terrain;        public void Initialize(int clientWidth, int clientHeight, float selectedGravity)
         {
-            // Initialize lander and terrain
-            lander = new Lander(clientWidth / 2, 50);
-            terrain = new Terrain(terrainSegments, terrainVariation, clientHeight - terrainHeight);
-            pads.Clear();
-            debris.Clear();
-            stars.Clear();
-
             // Set gravity
             gravity = selectedGravity;
 
-            // Generate terrain and initial landing pad
+            // Generate stars for title screen
             var rng = new Random();
-            float segW = clientWidth / (float)terrainSegments;
-            terrain.Generate(rng, clientWidth, clientHeight);
+            titleScreenStars.Clear();
+            GenerateTitleScreenStars(rng, clientWidth, clientHeight);
 
-            // Generate stars
-            GenerateStars(rng, clientHeight);
-
-            // Create initial landing pad
-            int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
-            int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
-            terrain.Flatten(startIdx, padSegs);
-            int endIdx = startIdx + padSegs;
-            float padY = (terrain.Points[startIdx].Y + terrain.Points[endIdx].Y) / 2;
-            float padXCoord = startIdx * segW;
-            float padW = padSegs * segW;
-            var initialPad = new LandingPad(padXCoord, padW, padY, blinkIntervalMs);
-            pads.Add(initialPad);
-
-            // Reset game state
+            // Start in title screen mode
+            currentState = GameState.TitleScreen;
             gameOver = landedSuccess = false;
             crashReason = string.Empty;
             cameraX = 0f;
@@ -89,7 +77,42 @@ namespace LanderGame
             GameStateChanged?.Invoke();
         }
 
-        public void Reset(int clientWidth, int clientHeight, float selectedGravity)
+        public void StartGame(int clientWidth, int clientHeight)
+        {
+            // Initialize lander and terrain
+            lander = new Lander(clientWidth / 2, 50);
+            terrain = new Terrain(terrainSegments, terrainVariation, clientHeight - terrainHeight);
+            pads.Clear();
+            debris.Clear();
+
+            // Generate terrain and initial landing pad
+            var rng = new Random();
+            float segW = clientWidth / (float)terrainSegments;
+            terrain.Generate(rng, clientWidth, clientHeight);
+
+            // Create initial landing pad
+            int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
+            int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
+            terrain.Flatten(startIdx, padSegs);
+            int endIdx = startIdx + padSegs;
+            float padY = (terrain.Points[startIdx].Y + terrain.Points[endIdx].Y) / 2;
+            float padXCoord = startIdx * segW;
+            float padW = padSegs * segW;            var initialPad = new LandingPad(padXCoord, padW, padY, blinkIntervalMs);
+            pads.Add(initialPad);
+
+            // Generate gameplay stars that avoid terrain
+            gameplayStars.Clear();
+            GenerateGameplayStars(rng, clientWidth, clientHeight);
+
+            // Start playing
+            currentState = GameState.Playing;
+            gameOver = landedSuccess = false;
+            crashReason = string.Empty;
+            cameraX = 0f;
+            thrusting = rotatingLeft = rotatingRight = false;
+
+            GameStateChanged?.Invoke();
+        }        public void Reset(int clientWidth, int clientHeight, float selectedGravity)
         {
             Initialize(clientWidth, clientHeight, selectedGravity);
         }
@@ -99,10 +122,15 @@ namespace LanderGame
             thrusting = thrust;
             rotatingLeft = rotLeft;
             rotatingRight = rotRight;
-        }
-
-        public void Tick(float delta, int clientWidth, int clientHeight)
+        }        public void Tick(float delta, int clientWidth, int clientHeight)
         {
+            // Don't update game logic if in title screen
+            if (currentState == GameState.TitleScreen)
+            {
+                RequestRedraw?.Invoke();
+                return;
+            }
+
             // Skip physics update if lander is stationary on ground (already landed)
             if (landedSuccess)
             {
@@ -193,22 +221,31 @@ namespace LanderGame
             UpdateDebris(delta);
 
             RequestRedraw?.Invoke();
+        }        private void GenerateTitleScreenStars(Random rng, int clientWidth, int clientHeight)
+        {
+            titleScreenStars.Clear();
+            for (int i = 0; i < StarCount; i++)
+            {
+                float x = (float)(rng.NextDouble() * clientWidth);
+                float y = (float)(rng.NextDouble() * clientHeight);
+                titleScreenStars.Add(new PointF(x, y));
+            }
         }
 
-        private void GenerateStars(Random rng, int clientHeight)
+        private void GenerateGameplayStars(Random rng, int clientWidth, int clientHeight)
         {
-            stars.Clear();
+            gameplayStars.Clear();
             for (int i = 0; i < StarCount; i++)
             {
                 float x;
                 float y;
-                // ensure star is above terrain
+                // Generate stars that are above terrain level
                 do
                 {
                     x = (float)(rng.NextDouble() * terrain.Points[^1].X);
                     y = (float)(rng.NextDouble() * (clientHeight - terrainHeight));
                 } while (y >= terrain.GetHeightAt(x));
-                stars.Add(new PointF(x, y));
+                gameplayStars.Add(new PointF(x, y));
             }
         }
 
@@ -241,9 +278,7 @@ namespace LanderGame
                     debris[i] = (start, end, vx0, vy0);
                 }
             }
-        }
-
-        // Helper methods for testing
-        public float GetTerrainYAt(float xPos) => terrain.GetHeightAt(xPos);
+        }        // Helper methods for testing
+        public float GetTerrainYAt(float xPos) => terrain?.GetHeightAt(xPos) ?? 0f;
     }
 }

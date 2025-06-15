@@ -6,8 +6,7 @@ using System.Linq;
 namespace Tests
 {
     public class GameEngineExtendedTests
-    {
-        [Fact]
+    {        [Fact]
         public void Initialize_CreatesRequiredComponents()
         {
             // Arrange
@@ -19,19 +18,23 @@ namespace Tests
             // Act
             gameEngine.Initialize(clientWidth, clientHeight, gravity);
             
-            // Assert
-            Assert.NotNull(gameEngine.LanderInstance);
-            Assert.NotNull(gameEngine.TerrainInstance);
-            Assert.Single(gameEngine.Pads);
+            // Assert - Initialize should start in title screen with only stars
+            Assert.Equal(GameState.TitleScreen, gameEngine.CurrentState);
             Assert.Equal(100, gameEngine.Stars.Count);
             Assert.Empty(gameEngine.Debris);
             Assert.False(gameEngine.IsGameOver);
             Assert.False(gameEngine.LandedSuccessFlag);
             Assert.Equal(string.Empty, gameEngine.CrashReason);
             Assert.Equal(0f, gameEngine.CameraX);
+            
+            // After starting the game, all components should be created
+            gameEngine.StartGame(clientWidth, clientHeight);
+            Assert.Equal(GameState.Playing, gameEngine.CurrentState);
+            Assert.NotNull(gameEngine.LanderInstance);
+            Assert.NotNull(gameEngine.TerrainInstance);
+            Assert.Single(gameEngine.Pads);
         }
-        
-        [Fact]
+          [Fact]
         public void Reset_ResetsAllGameState()
         {
             // Arrange
@@ -41,6 +44,7 @@ namespace Tests
             float gravity = 0.001f;
             
             gameEngine.Initialize(clientWidth, clientHeight, gravity);
+            gameEngine.StartGame(clientWidth, clientHeight); // Start a game first
             
             // Simulate some game state changes
             gameEngine.UpdateInput(true, false, false);
@@ -49,21 +53,21 @@ namespace Tests
             // Act
             gameEngine.Reset(clientWidth, clientHeight, gravity);
             
-            // Assert
+            // Assert - Reset should return to title screen
+            Assert.Equal(GameState.TitleScreen, gameEngine.CurrentState);
             Assert.False(gameEngine.IsGameOver);
             Assert.False(gameEngine.LandedSuccessFlag);
             Assert.Equal(string.Empty, gameEngine.CrashReason);
             Assert.Equal(0f, gameEngine.CameraX);
-            Assert.Single(gameEngine.Pads);
             Assert.Empty(gameEngine.Debris);
         }
-        
-        [Fact]
+          [Fact]
         public void UpdateInput_SetsInputStatesCorrectly()
         {
             // Arrange
             var gameEngine = new GameEngine();
             gameEngine.Initialize(800, 600, 0.001f);
+            gameEngine.StartGame(800, 600); // Need to start game to access lander
             var lander = gameEngine.LanderInstance;
             float initialFuel = lander.Fuel;
             
@@ -73,8 +77,7 @@ namespace Tests
             
             // Assert - Lander should have consumed fuel due to thrust
             Assert.True(lander.Fuel < initialFuel, "Fuel should be consumed when thrusting");
-        }
-          [Theory]
+        }        [Theory]
         [InlineData(-5f, 1f)] // Moving too fast left
         [InlineData(5f, 1f)]  // Moving too fast right
         [InlineData(0f, 2f)]  // Moving too fast down
@@ -83,6 +86,7 @@ namespace Tests
             // Arrange
             var gameEngine = new GameEngine();
             gameEngine.Initialize(800, 600, 0.001f);
+            gameEngine.StartGame(800, 600); // Need to start game to access game objects
             
             var pad = gameEngine.CurrentPad;
             var lander = gameEngine.LanderInstance;
@@ -113,13 +117,13 @@ namespace Tests
             Assert.True(gameEngine.IsGameOver, $"Game should be over. Crash reason: {gameEngine.CrashReason}");
             Assert.Contains("excessive speed", gameEngine.CrashReason);
         }
-        
-        [Fact]
+          [Fact]
         public void Tick_WithBadAngle_CausesAngleCrash()
         {
             // Arrange
             var gameEngine = new GameEngine();
             gameEngine.Initialize(800, 600, 0.001f);
+            gameEngine.StartGame(800, 600);
             
             var pad = gameEngine.CurrentPad;
             var lander = gameEngine.LanderInstance;
@@ -137,13 +141,13 @@ namespace Tests
             Assert.True(gameEngine.IsGameOver);
             Assert.Contains("bad angle", gameEngine.CrashReason);
         }
-        
-        [Fact]
+          [Fact]
         public void Tick_LandingOffPad_CausesNoPadCrash()
         {
             // Arrange
             var gameEngine = new GameEngine();
             gameEngine.Initialize(800, 600, 0.001f);
+            gameEngine.StartGame(800, 600);
             
             var pad = gameEngine.CurrentPad;
             var lander = gameEngine.LanderInstance;
@@ -160,13 +164,13 @@ namespace Tests
             Assert.True(gameEngine.IsGameOver);
             Assert.Contains("no pad", gameEngine.CrashReason);
         }
-        
-        [Fact]
+          [Fact]
         public void Tick_CameraFollowsLander()
         {
             // Arrange
             var gameEngine = new GameEngine();
             gameEngine.Initialize(800, 600, 0.001f);
+            gameEngine.StartGame(800, 600);
             
             var lander = gameEngine.LanderInstance;
             float initialCameraX = gameEngine.CameraX;
@@ -180,13 +184,13 @@ namespace Tests
             // Assert
             Assert.True(gameEngine.CameraX > initialCameraX, "Camera should follow lander movement");
         }
-        
-        [Fact]
+          [Fact]
         public void Tick_DebrisMovesWithPhysics()
         {
             // Arrange
             var gameEngine = new GameEngine();
             gameEngine.Initialize(800, 600, 0.001f);
+            gameEngine.StartGame(800, 600);
             
             // Force a crash to generate debris
             var pad = gameEngine.CurrentPad;
@@ -219,13 +223,13 @@ namespace Tests
             }
             Assert.True(debrisHasMoved, "Debris should move with physics");
         }
-        
-        [Fact]
+          [Fact]
         public void GetTerrainYAt_ReturnsValidHeight()
         {
             // Arrange
             var gameEngine = new GameEngine();
             gameEngine.Initialize(800, 600, 0.001f);
+            gameEngine.StartGame(800, 600);
             
             // Act
             float terrainHeight = gameEngine.GetTerrainYAt(400f);
@@ -234,13 +238,13 @@ namespace Tests
             Assert.True(terrainHeight > 0f);
             Assert.True(terrainHeight < 600f);
         }
-        
-        [Fact]
+          [Fact]
         public void CurrentPad_ReturnsLastPadInList()
         {
             // Arrange
             var gameEngine = new GameEngine();
             gameEngine.Initialize(800, 600, 0.001f);
+            gameEngine.StartGame(800, 600);
             
             // Force successful landing to create a second pad
             var initialPad = gameEngine.CurrentPad;
