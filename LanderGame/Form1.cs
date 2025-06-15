@@ -5,13 +5,12 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace LanderGame
-{
-    public partial class Form1 : Form
+{    public partial class Form1 : Form
     {
         private GameEngine gameEngine = null!;
         private bool thrusting, rotatingLeft, rotatingRight;
         private bool paused;
-        private float gravity;
+        private const float MoonGravity = 0.0004f; // Moon gravity in pixels per millisecond^2
 
         // conversion factor from radians to degrees
         private const float RadToDeg = 180f / (float)Math.PI;
@@ -22,28 +21,10 @@ namespace LanderGame
             // Start in full screen
             this.FormBorderStyle = FormBorderStyle.None;
             this.WindowState = FormWindowState.Maximized;
-            // Set initial gravity based on UI selection
-            SetGravityFromSelection();
             // Hook up rendering
             this.Load += Form1_Load;
             this.Paint += Form1_Paint;
-        }
-
-        // Set gravity based on chosen environment
-        internal void SetGravityFromSelection()
-        {
-            switch (envComboBox.SelectedIndex)
-            {
-                case 0: gravity = 0.0005f; break; // Moon
-                case 1: gravity = 0.001f; break;  // Earth
-                case 2: gravity = 0.00037f; break; // Mars
-            }
-        }
-
-        private void envComboBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            SetGravityFromSelection();
-        }        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        }private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
             // Handle title screen - any key starts the game
             if (gameEngine.CurrentState == GameState.TitleScreen)
@@ -86,19 +67,17 @@ namespace LanderGame
             if (e.KeyCode == Keys.Up) thrusting = false;
             if (e.KeyCode == Keys.Left) rotatingLeft = false;
             if (e.KeyCode == Keys.Right) rotatingRight = false;
-        }
-
-        private void Form1_Load(object? sender, EventArgs e)
+        }        private void Form1_Load(object? sender, EventArgs e)
         {
             // Initialize game engine
             gameEngine = new GameEngine();
             gameEngine.GameStateChanged += () => Invalidate();
             gameEngine.RequestRedraw += () => Invalidate();
-            gameEngine.Initialize(ClientSize.Width, ClientSize.Height, gravity);
+            gameEngine.Initialize(ClientSize.Width, ClientSize.Height, MoonGravity);
 
             // Pause simulation until first input
             gameTimer.Stop();
-        }        /// <summary>For testing: initialize game state as if loaded.</summary>
+        }/// <summary>For testing: initialize game state as if loaded.</summary>
         internal void InitializeForTest()
         {
             Form1_Load(this, EventArgs.Empty);
@@ -121,16 +100,8 @@ namespace LanderGame
         internal Lander LanderInstance => gameEngine.LanderInstance;
         internal IReadOnlyList<LandingPad> Pads => gameEngine.Pads;
         internal LandingPad CurrentPad => gameEngine.CurrentPad;
-        internal bool LandedSuccessFlag => gameEngine.LandedSuccessFlag;
-
-        // Expose gravity for testing
-        internal float Gravity => gravity;
-        // Expose environment selection for testing
-        internal int EnvironmentIndex
-        {
-            get => envComboBox.SelectedIndex;
-            set => envComboBox.SelectedIndex = value;
-        }
+        internal bool LandedSuccessFlag => gameEngine.LandedSuccessFlag;        // Expose gravity for testing
+        internal float Gravity => MoonGravity;
 
         // Expose crash reason for testing
         internal string CrashReason => gameEngine.CrashReason;
@@ -148,7 +119,7 @@ namespace LanderGame
         {
             thrusting = rotatingLeft = rotatingRight = false;
             paused = false;
-            gameEngine.Initialize(ClientSize.Width, ClientSize.Height, gravity);
+            gameEngine.Initialize(ClientSize.Width, ClientSize.Height, MoonGravity);
             gameTimer.Stop();
             // Force redraw so screen resets immediately
             Invalidate();

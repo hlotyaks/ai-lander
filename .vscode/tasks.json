@@ -17,8 +17,7 @@
         "panel": "shared"
       },
       "problemMatcher": "$msCompile"
-    },
-    {
+    },    {
       "label": "Run All Tests",
       "type": "process",
       "command": "dotnet",
@@ -30,6 +29,23 @@
         "kind": "test",
         "isDefault": true
       },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build Tests with Symbols",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "Tests",
+        "--configuration", "Debug",
+        "--verbosity", "normal"
+      ],
+      "group": "build",
       "presentation": {
         "reveal": "always",
         "panel": "shared"

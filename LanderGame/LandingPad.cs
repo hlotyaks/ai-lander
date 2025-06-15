@@ -35,16 +35,16 @@ namespace LanderGame
             blinkTimer.Stop();
             LightsVisible = true;
             IsUsed = true;
-        }
-
-        public void Draw(Graphics g)
+        }        public void Draw(Graphics g)
         {
             using var padPen = new Pen(Color.Green, 5);
             g.DrawLine(padPen, X, Y, X + Width, Y);
 
             if (LightsVisible)
             {
-                using var lightBrush = new SolidBrush(Color.Yellow);
+                // Show red lights for used pads, yellow for available pads
+                Color lightColor = IsUsed ? Color.Red : Color.Yellow;
+                using var lightBrush = new SolidBrush(lightColor);
                 float r = 5f;
                 g.FillEllipse(lightBrush, X - r, Y - 2 * r, 2 * r, 2 * r);
                 g.FillEllipse(lightBrush, X + Width - r, Y - 2 * r, 2 * r, 2 * r);
