@@ -404,3 +404,8 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Exclude all files within .scratch folder while keeping the folder
+/.scratch/**
+!/.scratch/
+!/.scratch/README.md

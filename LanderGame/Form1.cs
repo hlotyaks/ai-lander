@@ -67,7 +67,8 @@ namespace LanderGame
             if (e.KeyCode == Keys.Up) thrusting = false;
             if (e.KeyCode == Keys.Left) rotatingLeft = false;
             if (e.KeyCode == Keys.Right) rotatingRight = false;
-        }        private void Form1_Load(object? sender, EventArgs e)
+        }
+        private void Form1_Load(object? sender, EventArgs e)
         {
             // Initialize game engine
             gameEngine = new GameEngine();
@@ -123,7 +124,8 @@ namespace LanderGame
             gameTimer.Stop();
             // Force redraw so screen resets immediately
             Invalidate();
-        }private void Form1_Paint(object? sender, PaintEventArgs e)
+        }
+        private void Form1_Paint(object? sender, PaintEventArgs e)
         {
             var g = e.Graphics;
             g.Clear(Color.Black);            // Handle title screen
@@ -142,19 +144,19 @@ namespace LanderGame
                 {
                     var titleText = "Lunar Invasion";
                     var subtitleText = "Press any key to play";
-                    
+
                     var titleSize = g.MeasureString(titleText, titleFont);
                     var subtitleSize = g.MeasureString(subtitleText, subtitleFont);
-                    
+
                     var centerX = ClientSize.Width / 2f;
                     var centerY = ClientSize.Height / 2f;
-                    
+
                     // Draw title
-                    g.DrawString(titleText, titleFont, Brushes.White, 
+                    g.DrawString(titleText, titleFont, Brushes.White,
                         centerX - titleSize.Width / 2, centerY - titleSize.Height / 2 - 50);
-                    
+
                     // Draw subtitle
-                    g.DrawString(subtitleText, subtitleFont, Brushes.Gray, 
+                    g.DrawString(subtitleText, subtitleFont, Brushes.Gray,
                         centerX - subtitleSize.Width / 2, centerY - subtitleSize.Height / 2 + 50);
                 }
                 return;
