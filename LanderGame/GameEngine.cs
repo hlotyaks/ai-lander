@@ -30,7 +30,7 @@ namespace LanderGame
 
         // Game constants
         private const float terrainHeight = 20f;
-        private const int terrainSegments = 40;
+        private const int terrainSegmentsPerScreen = 40;
         private const float terrainVariation = 500f;
         private const float scrollMargin = 500f;
         private const int blinkIntervalMs = 500;
@@ -88,23 +88,27 @@ namespace LanderGame
         {
             // Initialize lander and terrain
             lander = new Lander(clientWidth / 2, 50);
-            terrain = new Terrain(terrainSegments, terrainVariation, clientHeight - terrainHeight);
+            terrain = new Terrain(terrainSegmentsPerScreen, terrainVariation, clientHeight - terrainHeight);
             pads.Clear();
             debris.Clear();
 
             // Generate terrain and initial landing pad
-            float segW = clientWidth / (float)terrainSegments;
-            terrain.Generate(rng, clientWidth, clientHeight);
-
-            // Create initial landing pad
-            int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegments);
-            int startIdx = rng.Next(0, terrainSegments - padSegs + 1);
-            terrain.Flatten(startIdx, padSegs);
-            int endIdx = startIdx + padSegs;
-            float padY = (terrain.Points[startIdx].Y + terrain.Points[endIdx].Y) / 2;
-            float padXCoord = startIdx * segW;
+            float segW = clientWidth / (float)terrainSegmentsPerScreen;
+            terrain.Generate(rng, clientWidth, clientHeight);            // Create initial landing pad
+            int padSegs = Math.Clamp((int)Math.Round(60f / segW), 1, terrainSegmentsPerScreen);
             float padW = padSegs * segW;
-            var initialPad = new LandingPad(padXCoord, padW, padY, blinkIntervalMs);
+            
+            // Find a suitable location for the initial landing pad
+            float padX = terrain.FindSuitableLandingPadLocation(padW, 0, clientWidth * 0.8f);
+            if (padX < 0) // Fallback to random if no good location found
+            {
+                int startIdx = rng.Next(0, terrainSegmentsPerScreen - padSegs + 1);
+                padX = startIdx * segW;
+            }
+            
+            terrain.FlattenAt(padX, padW);
+            float padY = terrain.GetHeightAt(padX);
+            var initialPad = new LandingPad(padX, padW, padY, blinkIntervalMs);
             pads.Add(initialPad);
 
             // Generate gameplay stars that avoid terrain
@@ -162,7 +166,7 @@ namespace LanderGame
             }
 
             float x = lander.X, y = lander.Y, vx = lander.Vx, vy = lander.Vy;            // Terrain collision and landing/crash handling
-            float segW = clientWidth / (float)terrainSegments;
+            float segW = clientWidth / (float)terrainSegmentsPerScreen;
             float terrainY = terrain.GetHeightAt(x);
             if (!gameOver && vy >= 0f && y + 20 >= terrainY)
             {
@@ -180,13 +184,22 @@ namespace LanderGame
                     // Refuel and mark pad as used
                     lander.Refuel();
                     pad.StopBlinking();
-                    landedSuccess = true;
-                    
-                    // Spawn new pad
-                    var rnd = new Random();
-                    int offset = rnd.Next(100, 201);
-                    float nextX = pad.X + offset * segW;
+                    landedSuccess = true;                    // Spawn new pad
                     float nextW = pad.Width;
+                    float minDistance = terrainSegmentsPerScreen * 3 * segW; // Minimum distance: 3 screen widths
+                    float maxDistance = terrainSegmentsPerScreen * 4 * segW; // Maximum distance: 4 screen widths
+                    float searchMinX = pad.X + minDistance;
+                    float searchMaxX = pad.X + maxDistance;
+                    
+                    // Find a suitable location for the new landing pad
+                    float nextX = terrain.FindSuitableLandingPadLocation(nextW, searchMinX, searchMaxX);
+                    if (nextX < 0) // Fallback to offset-based placement if no good location found
+                    {
+                        // 3-4 screen widths to match distance constraints
+                        int offset = rng.Next(terrainSegmentsPerScreen * 3, (terrainSegmentsPerScreen * 4)+1); 
+                        nextX = pad.X + offset * segW;
+                    }
+                    
                     terrain.FlattenAt(nextX, nextW);
                     float nextY = terrain.GetHeightAt(nextX);
                     var newPad = new LandingPad(nextX, nextW, nextY, blinkIntervalMs);

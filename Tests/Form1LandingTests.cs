@@ -32,13 +32,11 @@ namespace Tests
             // Assert
             Assert.True(form.LandedSuccessFlag, "LandedSuccessFlag should be true after a successful landing");
             // Fuel should be full
-            Assert.Equal(100f, lander.Fuel);
-
-            // New pad should be spawned ahead by 100-200 segments
+            Assert.Equal(100f, lander.Fuel);            // New pad should be spawned ahead by 120-160 segments (3-4 screen widths)
             var newPad = form.CurrentPad;
             Assert.NotSame(initialPad, newPad);
-            float minX = initialPadX + 100f * segW;
-            float maxX = initialPadX + 200f * segW;
+            float minX = initialPadX + 120f * segW;
+            float maxX = initialPadX + 160f * segW;
             Assert.InRange(newPad.X, minX, maxX);
             // Width should remain the same
             Assert.Equal(initialPadW, newPad.Width);

@@ -118,6 +118,86 @@ namespace LanderGame
             PointF p1 = Points[idx + 1];
             float t = (pos - p0.X) / (p1.X - p0.X);
             return p0.Y + t * (p1.Y - p0.Y);
+        }        /// <summary>
+        /// Finds a suitable location for a landing pad of the given width.
+        /// Returns the X coordinate where the pad should be placed, or -1 if no suitable location found.
+        /// </summary>
+        public float FindSuitableLandingPadLocation(float padWidth, float minX, float maxX)
+        {
+            float segW = segmentWidth;
+            int padSegs = Math.Max(1, (int)Math.Ceiling(padWidth / segW));
+            
+            // Try to find existing flat areas first
+            for (float testX = minX; testX <= maxX - padWidth; testX += segW)
+            {
+                if (IsAreaSuitableForPad(testX, padWidth, padSegs))
+                {
+                    return testX;
+                }
+            }
+            
+            // If no suitable flat area found, find the least mountainous area to flatten
+            float bestX = -1;
+            float minVariation = float.MaxValue;
+            
+            for (float testX = minX; testX <= maxX - padWidth; testX += segW)
+            {
+                float variation = GetTerrainVariationInArea(testX, padWidth);
+                if (variation < minVariation)
+                {
+                    minVariation = variation;
+                    bestX = testX;
+                }
+            }
+            
+            return bestX;
+        }
+        
+        /// <summary>
+        /// Checks if an area is already suitable for a landing pad (relatively flat).
+        /// </summary>
+        private bool IsAreaSuitableForPad(float startX, float padWidth, int padSegs)
+        {
+            int startIdx = (int)Math.Round(startX / segmentWidth);
+            int endIdx = Math.Min(startIdx + padSegs, Points.Length - 1);
+            
+            if (startIdx < 0 || endIdx >= Points.Length) return false;
+            
+            // Check if the area is already relatively flat
+            float minY = float.MaxValue;
+            float maxY = float.MinValue;
+            
+            for (int i = startIdx; i <= endIdx; i++)
+            {
+                minY = Math.Min(minY, Points[i].Y);
+                maxY = Math.Max(maxY, Points[i].Y);
+            }
+            
+            // Consider flat if height variation is less than 10 pixels
+            return (maxY - minY) <= 10f;
+        }
+        
+        /// <summary>
+        /// Gets the height variation in a terrain area.
+        /// </summary>
+        private float GetTerrainVariationInArea(float startX, float width)
+        {
+            int startIdx = (int)Math.Round(startX / segmentWidth);
+            int endIdx = (int)Math.Round((startX + width) / segmentWidth);
+            endIdx = Math.Min(endIdx, Points.Length - 1);
+            
+            if (startIdx < 0 || startIdx >= Points.Length) return float.MaxValue;
+            
+            float minY = float.MaxValue;
+            float maxY = float.MinValue;
+            
+            for (int i = startIdx; i <= endIdx; i++)
+            {
+                minY = Math.Min(minY, Points[i].Y);
+                maxY = Math.Max(maxY, Points[i].Y);
+            }
+            
+            return maxY - minY;
         }
     }
 }
