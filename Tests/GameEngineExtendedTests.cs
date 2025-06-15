@@ -74,8 +74,7 @@ namespace Tests
             // Assert - Lander should have consumed fuel due to thrust
             Assert.True(lander.Fuel < initialFuel, "Fuel should be consumed when thrusting");
         }
-        
-        [Theory]
+          [Theory]
         [InlineData(-5f, 1f)] // Moving too fast left
         [InlineData(5f, 1f)]  // Moving too fast right
         [InlineData(0f, 2f)]  // Moving too fast down
@@ -88,16 +87,30 @@ namespace Tests
             var pad = gameEngine.CurrentPad;
             var lander = gameEngine.LanderInstance;
             
-            // Position lander for landing with excessive velocity
-            float landingX = pad.X + pad.Width / 2f;
+            // Ensure lander is positioned well within the pad bounds
+            float landingX = pad.X + (pad.Width / 2f); // Center of pad
             float terrainY = gameEngine.GetTerrainYAt(landingX);
-            lander.SetState(landingX, terrainY - 21f, 0f, vx, vy);
+              // Debug output to verify positioning
+            System.Console.WriteLine($"=== Test with vx={vx}, vy={vy} ===");
+            System.Console.WriteLine($"Pad count: {gameEngine.Pads.Count}");
+            System.Console.WriteLine($"Current pad IsUsed: {pad.IsUsed}");
+            System.Console.WriteLine($"Pad bounds: X={pad.X}, Width={pad.Width}, Right={pad.X + pad.Width}");
+            System.Console.WriteLine($"Landing X: {landingX}, Terrain Y: {terrainY}");
+            
+            lander.SetState(landingX, terrainY - 19f, 0f, vx, vy);
+            
+            // Verify lander is positioned on pad before crash
+            System.Console.WriteLine($"Lander position: X={lander.X}, Y={lander.Y}, Vx={lander.Vx}, Vy={lander.Vy}");
+            System.Console.WriteLine($"Lander is on pad: {lander.X >= pad.X && lander.X <= pad.X + pad.Width}");
+              // Check what the collision detection will find
+            var foundPad = gameEngine.Pads.FirstOrDefault(p => !p.IsUsed && lander.X >= p.X && lander.X <= p.X + p.Width);
+            System.Console.WriteLine($"Found unused pad at lander position: {foundPad != null}");
             
             // Act
-            gameEngine.Tick(16f, 800, 600);
+            gameEngine.Tick(1f, 800, 600); // Use very small delta to prevent overshooting
             
             // Assert
-            Assert.True(gameEngine.IsGameOver);
+            Assert.True(gameEngine.IsGameOver, $"Game should be over. Crash reason: {gameEngine.CrashReason}");
             Assert.Contains("excessive speed", gameEngine.CrashReason);
         }
         
